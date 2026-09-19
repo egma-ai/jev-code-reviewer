@@ -1,0 +1,76 @@
+# Jev-Reviewer architecture
+
+Jev-Reviewer is a local-first prototype that overlays prioritized, natural-language change cards on GitHub's existing pull-request page. There is no hosted Jev-Reviewer backend and no GitHub App in v1.
+
+```text
+Local checkout + git + gh
+           |
+           v
+   Jev-Reviewer CLI ---- optional Graphify context
+       |        |
+       |        +---- OpenAI: old logic / new logic / what changed
+       |        +---- TypeSafe Jev: structured review priority
+       v
+~/.cache/jev-reviewer/reviews
+           |
+           v
+127.0.0.1 local server -- pairing token --> unpacked Chrome extension
+                                                |
+                                                v
+                                     GitHub Files changed page
+```
+
+## Components
+
+### CLI
+
+`bin/jev-reviewer.mjs` owns the workflow:
+
+- `setup` collects the TypeSafe and OpenAI keys with hidden terminal input and stores them outside the repository.
+- `analyze --pr <url-or-number> --repo <path>` resolves the pull request with `gh`, reads the local checkout and Git history, invokes the providers, applies policy, and writes a cached report.
+- `serve` exposes cached reports to the same-computer browser extension over loopback only.
+- `demo` serves the bundled recorded report replay. It does not call either model provider.
+- `token` prints the local pairing token for a human to copy into the extension.
+
+The CLI uses the repository's existing GitHub access through `gh`; it does not ask for a GitHub token itself. Private repositories therefore need an authenticated `gh` session and a local checkout that the user can already read.
+
+### Context and explanation
+
+The Git diff is the base source of truth. With `--graphify`, Graphify can add structural context such as related symbols and dependencies when it is installed. Graphify is optional; live analysis must continue to label the context it actually had rather than imply whole-repository understanding.
+
+OpenAI generates the natural-language fields shown to the reviewer:
+
+- old logic
+- new logic
+- what changed
+- why the change may need human attention
+
+Those summaries are an interface over the code, not an authoritative replacement for it. The extension keeps the GitHub diff available as evidence.
+
+### Priority classification
+
+TypeSafe Jev produces the structured classification signal. Policy then maps the available evidence to the project's P0/P1/P2 meanings:
+
+- P0: human review required
+- P1: human review recommended
+- P2: mechanical or well-supported
+
+The bundled default is `config/policy.json`. A repository can override it with `.jev-reviewer.json`, or a caller can pass `--policy <file>`. Policy belongs in configuration, not in the installed agent skill.
+
+### Cache and browser bridge
+
+Completed reports live below `~/.cache/jev-reviewer/reviews`. The local server reads that cache and binds to loopback, so it is reachable only from the same computer under normal configuration. For a GitHub PR, the extension requests `GET http://127.0.0.1:4731/api/reviews/{owner}/{repo}/{pullRequest}` with the pairing token as a bearer token. It matches the response to the current PR and inserts review cards into the page. It does not read arbitrary local files.
+
+The pairing token is not a model-provider key, but it should still be treated as local access material. A coding agent should never run `jev-reviewer token` into its transcript; the human copies it directly to **Display settings** in the extension card. Chrome stores it locally for subsequent requests.
+
+## Data and trust boundaries
+
+Live analysis is not fully offline. Relevant private source, diff, and context are sent to the configured TypeSafe Jev and OpenAI APIs. Teams must decide whether those providers and their configured data controls are acceptable before analyzing private code.
+
+The credential file is stored outside the repository with owner-only filesystem permissions, but it is not encrypted at rest. Environment variables can also satisfy provider configuration. The browser extension receives cached review results and a local pairing token; it must never receive `TYPESAFE_API_KEY` or `OPENAI_API_KEY`.
+
+The recorded demo is different: it replays a bundled, precomputed report and makes no live provider request. The UI and demo narration should label replay mode clearly.
+
+## Automatic agent use
+
+The portable skill tells a coding agent to run analysis after it creates or updates a PR. This is best-effort behavior while that agent is active. The skill is not a daemon, webhook, Git hook, or guaranteed listener for future PR updates.

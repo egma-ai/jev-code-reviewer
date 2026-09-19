@@ -1,0 +1,24 @@
+{
+  "name": "jev-reviewer",
+  "version": "0.1.0",
+  "description": "A human-first GitHub review interface, prioritized by Jev and explained by OpenAI.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "jev-reviewer": "bin/jev-reviewer.mjs"
+  },
+  "scripts": {
+    "setup": "node bin/jev-reviewer.mjs setup",
+    "demo": "node bin/jev-reviewer.mjs demo",
+    "start": "node bin/jev-reviewer.mjs serve",
+    "test": "node --test test/*.test.mjs extension/test/*.test.mjs",
+    "test:core": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

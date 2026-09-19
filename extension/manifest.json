@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Jev-Reviewer",
+  "version": "0.1.0",
+  "description": "A natural-language-first, priority-ranked view of GitHub pull requests.",
+  "permissions": ["storage"],
+  "host_permissions": ["http://127.0.0.1:4731/*"],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*/*/pull/*"],
+      "js": ["review-ui.js", "content.js"],
+      "css": ["review-ui.css", "content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Jev-Reviewer"
+  }
+}
