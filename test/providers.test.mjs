@@ -38,6 +38,7 @@ function providerFetch({
   openAIContentType = 'output_text',
   jevPriority = 'P0',
   jevConfidence = 0.84,
+  jevProbabilities = { P0: 0.8, P1: 0.15, P2: 0.05 },
 } = {}) {
   const calls = [];
   const fetchImpl = async (url, init) => {
@@ -60,7 +61,7 @@ function providerFetch({
           type: 'choice',
           choice: jevPriority,
           confidence: jevConfidence,
-          probabilities: { P0: 0.8, P1: 0.15, P2: 0.05 },
+          probabilities: jevProbabilities,
         },
         dominant_risk: {
           type: 'choice',
@@ -167,6 +168,13 @@ test('caps raw repository packets and marks truncation', async () => {
   assert.ok(serialized.length <= providerDefaults.maxPacketChars);
   assert.doesNotThrow(() => JSON.parse(serialized));
   assert.equal(jev.body.state.packetTruncation.applied, true);
+});
+
+test('canonical uncertainPriority escalates close classes and preserves the actual Jev choice', async () => {
+  const mock = providerFetch({ jevPriority: 'P2', jevProbabilities: { P0: 0.02, P1: 0.48, P2: 0.5 } });
+  const classification = await classifyWithJev(UNIT, { credentials, fetchImpl: mock.fetchImpl, policy: { uncertainPriority: 'P0' } });
+  assert.equal(classification.priority, 'P0');
+  assert.equal(classification.modelPriority, 'P2');
 });
 
 test('exports an independent Jev-only classifier for honest partial demos', async () => {

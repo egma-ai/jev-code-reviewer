@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, mkdir, writeFile, rename, unlink, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rename, unlink, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 
 import { applyPolicy, reportPath, writeJson } from '../src/config.mjs';
 import { buildUnits, parsePr, readSource } from '../src/git.mjs';
@@ -114,6 +114,8 @@ test('policy forces configured paths to P0 and escalates incomplete context', ()
   assert.equal(applyPolicy({ priority: 'P2' }, { ...ordinary, unsupported: true }, policy).priority, 'P1');
   assert.equal(applyPolicy({ priority: 'P2' }, { ...ordinary, context: { truncated: true } }, policy).priority, 'P1');
   assert.equal(applyPolicy({ priority: 'unknown' }, ordinary, policy).priority, 'P1');
+  assert.equal(applyPolicy({ priority: 'P2', providerMetadata: { jev: { contextTruncated: true } } }, ordinary, policy).priority, 'P1');
+  assert.equal(applyPolicy({ priority: 'P0', modelPriority: 'P2' }, ordinary, policy).modelPriority, 'P2');
   assert.equal(applyPolicy(
     { priority: 'P2' },
     { ...ordinary, unsupported: true },
@@ -170,6 +172,10 @@ test('local report server enforces token, host, origin, route, method, and cache
   const expected = { repository: 'Owner/Repo', pullRequest: 7, headSha: 'a'.repeat(40), changes: [] };
   const path = reportPath(expected.repository, expected.pullRequest, directory);
   await writeJson(path, expected);
+  if (process.platform !== 'win32') {
+    assert.equal((await stat(path)).mode & 0o077, 0, 'cached reports must not be group/world readable');
+    assert.equal((await stat(dirname(path))).mode & 0o077, 0, 'report directory must not be group/world accessible');
+  }
 
   const token = 'local-test-pairing-token';
   const authorization = { Authorization: `Bearer ${token}` };
@@ -180,6 +186,17 @@ test('local report server enforces token, host, origin, route, method, and cache
   const replay = await request(server, '/api/demo');
   assert.equal(replay.status, 200);
   assert.equal(replay.body.mode, 'replay');
+  assert.equal((await request(server, '/api/reviews/public/example/1')).status, 401);
+  const extensionReplay = await request(server, '/api/reviews/public/example/1', { headers: authorization });
+  assert.equal(extensionReplay.status, 200);
+  assert.equal(extensionReplay.body.mode, 'replay');
+  assert.equal(extensionReplay.body.repository, 'public/example');
+  await assert.rejects(
+    stat(reportPath('public/example', 1, directory)),
+    (error) => error.code === 'ENOENT',
+    'replay fallback must not create or replace a live cache file',
+  );
+  assert.equal((await request(server, '/api/reviews/public/example/2', { headers: authorization })).status, 404);
 
   assert.equal((await request(server, '/api/reviews/Owner/Repo/7')).status, 401);
   assert.equal((await request(server, '/api/reviews/Owner/Repo/7', { headers: { Authorization: 'Bearer wrong' } })).status, 401);

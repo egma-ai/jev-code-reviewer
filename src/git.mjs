@@ -23,7 +23,7 @@ export async function resolvePr(repo, prUrl) {
   // Verify local origin identity before allowing a read of local source for this PR.
   const origin = (await git(repo, 'remote', 'get-url', 'origin')).trim();
   const expected = pr.repository.toLowerCase();
-  const remoteMatch = /(?:github\.com[:/])([^/]+\/[^/]+?)(?:\.git)?$/.exec(origin);
+  const remoteMatch = /^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([^/]+\/[^/]+?)(?:\.git)?$/.exec(origin);
   if (!remoteMatch || remoteMatch[1].toLowerCase() !== expected) throw new Error('Local origin does not match the PR repository. Use a clone of the PR base repository.');
   const baseTip = metadata.base.sha;
   const head = metadata.head.sha;

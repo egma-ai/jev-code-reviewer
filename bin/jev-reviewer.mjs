@@ -2,7 +2,7 @@
 import { parseArgs } from 'node:util';
 import { resolve, join } from 'node:path';
 import { setupKeys } from '../scripts/setup-keys.mjs';
-import { loadPolicy, applyPolicy, writeJson, reportPath, digest, pairingToken } from '../src/config.mjs';
+import { ROOT, readJson, loadPolicy, applyPolicy, writeJson, reportPath, digest, pairingToken } from '../src/config.mjs';
 import { resolvePr, buildUnits } from '../src/git.mjs';
 import { enrichContext } from '../src/context.mjs';
 import { startServer } from '../src/server.mjs';
@@ -39,7 +39,12 @@ async function main() {
     const server = await startServer({ port });
     console.log(`Jev-Reviewer is ready at http://127.0.0.1:${port}/demo`);
     console.log('Extension bridge is running. Pair using: jev-reviewer token');
-    console.log('Demo is a labeled replay of a real Jev + OpenAI run. Ctrl+C to stop.');
+    if (action === 'demo') {
+      const report = await readJson(join(ROOT, 'demo/report.json'));
+      console.log(`GitHub demo: ${report.url}/files`);
+      console.log(`Recorded analysis. Explanations: ${report.providers?.explanations || 'See report provenance'}.`);
+    }
+    console.log('Ctrl+C to stop.');
     process.on('SIGINT', () => server.close(() => process.exit(0)));
     return;
   }
@@ -72,6 +77,7 @@ async function main() {
   });
   const report = { schemaVersion: 1, ...identity, generatedAt: new Date().toISOString(), mode: 'live',
     providers: { classifier: 'TypeSafe Jev', explanations: 'OpenAI' }, policyHash: digest(policy), display: policy.display,
+    provenance: { classification: 'live-typesafe-api', explanations: 'live-openai-api', note: 'Generated from the committed revisions recorded in this report. Priority suggests human attention, not correctness.' },
     context, coverage: { total: units.length, analyzed: selected.length, unanalysed: units.length - selected.length }, changes,
   };
   const path = reportPath(metadata.repository, metadata.pullRequest);

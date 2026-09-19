@@ -65,3 +65,21 @@ test("missing evidence line numbers remain null rather than coercing to zero", (
   assert.equal(item.evidence[0].startLine, null);
   assert.equal(item.evidence[0].endLine, null);
 });
+
+test("retains explicit provider provenance, coverage, and review notes", () => {
+  const report = ui.normalizeReport({
+    mode: "replay",
+    provenance: { classification: "live-typesafe-api", explanations: "prepared-copy", note: "Limited demo." },
+    coverage: { total: 3, analyzed: 2, unanalysed: 1 },
+    changes: [{ policyReasons: ["Policy override."], contextWarnings: ["Graph unavailable."] }]
+  });
+  assert.deepEqual(report.provenance, {
+    classification: "live-typesafe-api",
+    explanations: "prepared-copy",
+    note: "Limited demo."
+  });
+  assert.deepEqual(report.coverage, { total: 3, analyzed: 2, unanalysed: 1 });
+  assert.deepEqual(report.changes[0].policyReasons, ["Policy override."]);
+  assert.deepEqual(report.changes[0].contextWarnings, ["Graph unavailable."]);
+  assert.equal(ui.provenanceText(report), "Recorded Jev decisions · prepared demo explanations");
+});

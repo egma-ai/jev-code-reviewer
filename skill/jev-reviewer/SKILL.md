@@ -31,7 +31,7 @@ jev-reviewer setup
 
 Never ask the user to paste a key into chat, add it to this skill, commit it, print it, or inspect its value. Skill installation and credential setup are separate.
 
-The optional `--graphify` flag enriches live analysis when Graphify is installed and appropriate for the repository. Do not present Graphify as required.
+The CLI attempts local Graphify enrichment by default and falls back to source-only context when Graphify is unavailable. `--no-graphify` disables that attempt; `--graphify` is an optional explicit enable. Do not present Graphify installation as required.
 
 ## Recorded demo
 
@@ -41,7 +41,7 @@ To replay the bundled, precomputed demonstration without provider keys, run:
 jev-reviewer demo
 ```
 
-Describe this accurately as a recorded report replay, not live model analysis. Follow the command's output to open the matching PR page.
+Describe this accurately as a recorded report replay, not live model analysis. The bundled report contains real recorded Jev classifications and prepared explanation copy; see `demo/README.md` for provenance. Follow the command's output to open the standalone replay or matching PR page.
 
 ## Browser bridge
 

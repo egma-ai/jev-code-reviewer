@@ -18,6 +18,10 @@
     return Array.isArray(value) ? value.slice(0, max) : [];
   }
 
+  function stringArray(value, max = 50) {
+    return asArray(value, max).map((item) => text(item)).filter(Boolean);
+  }
+
   function priority(value) {
     const normalized = String(value || "").toUpperCase();
     return PRIORITIES.includes(normalized) ? normalized : "P0";
@@ -54,7 +58,9 @@
       evidence: asArray(source.evidence, 50).map(normalizeEvidence).filter(Boolean),
       diff: text(source.diff),
       confidence: Number.isFinite(Number(source.confidence)) ? Math.max(0, Math.min(1, Number(source.confidence))) : null,
-      signals: source.signals && typeof source.signals === "object" ? source.signals : null
+      signals: stringArray(source.signals),
+      policyReasons: stringArray(source.policyReasons ?? source.policy_reasons),
+      contextWarnings: stringArray(source.contextWarnings ?? source.context_warnings)
     };
   }
 
@@ -73,6 +79,18 @@
       generatedAt: text(source.generatedAt ?? source.generated_at),
       mode: source.mode === "replay" ? "replay" : "live",
       providers: source.providers && typeof source.providers === "object" ? source.providers : {},
+      provenance: source.provenance && typeof source.provenance === "object" ? {
+        classification: text(source.provenance.classification),
+        explanations: text(source.provenance.explanations),
+        note: text(source.provenance.note)
+      } : {},
+      coverage: source.coverage && typeof source.coverage === "object" ? {
+        total: Number.isInteger(Number(source.coverage.total)) && Number(source.coverage.total) >= 0 ? Number(source.coverage.total) : changes.length,
+        analyzed: Number.isInteger(Number(source.coverage.analyzed)) && Number(source.coverage.analyzed) >= 0 ? Number(source.coverage.analyzed) : changes.length,
+        unanalysed: Number.isInteger(Number(source.coverage.unanalysed ?? source.coverage.unanalyzed)) && Number(source.coverage.unanalysed ?? source.coverage.unanalyzed) >= 0
+          ? Number(source.coverage.unanalysed ?? source.coverage.unanalyzed)
+          : 0
+      } : { total: changes.length, analyzed: changes.length, unanalysed: 0 },
       context: source.context && typeof source.context === "object" ? source.context : {},
       display: source.display && typeof source.display === "object" ? source.display : {},
       changes
@@ -125,6 +143,18 @@
       : { state: "stale", label: `Stale · analyzed ${shortSha(report.headSha)}, page ${shortSha(currentHeadSha)}` };
   }
 
+  function provenanceText(report) {
+    const classification = report.provenance.classification === "live-typesafe-api"
+      ? report.mode === "replay" ? "Recorded Jev decisions" : "Live Jev decisions"
+      : "Jev decision provenance unverified";
+    const explanations = report.provenance.explanations === "prepared-copy"
+      ? "prepared demo explanations"
+      : report.provenance.explanations === "live-openai-api"
+        ? "OpenAI explanations"
+        : "explanation provenance unverified";
+    return `${classification} · ${explanations}`;
+  }
+
   function renderReview(container, rawReport, options = {}) {
     if (!container || typeof container.replaceChildren !== "function") {
       throw new TypeError("renderReview requires a DOM container.");
@@ -138,6 +168,7 @@
     const freshness = makeFreshness(report, text(options.currentHeadSha));
     if (freshness.state !== "fresh") display.showNativeDiff = true;
     const counts = Object.fromEntries(PRIORITIES.map((p) => [p, report.changes.filter((c) => c.priority === p).length]));
+    const preparedCopy = report.provenance.explanations === "prepared-copy";
 
     container.replaceChildren();
     container.classList.add("jrv-shell");
@@ -172,6 +203,24 @@
     freshnessNode.title = report.generatedAt ? `Generated ${report.generatedAt}` : "Generation time unavailable";
     heading.append(freshnessNode);
     header.append(brandRow, heading);
+
+    const provenance = el("aside", `jrv-provenance${preparedCopy ? " jrv-provenance--prepared" : ""}`);
+    const provenanceHeading = el("strong", "jrv-provenance__title", provenanceText(report));
+    provenance.append(provenanceHeading);
+    if (report.provenance.note) provenance.append(el("span", "jrv-provenance__note", report.provenance.note));
+    header.append(provenance);
+
+    const coverage = el("div", `jrv-coverage${report.coverage.unanalysed > 0 ? " jrv-coverage--partial" : ""}`);
+    coverage.append(el("strong", "jrv-coverage__count", `${report.coverage.analyzed}/${report.coverage.total}`), document.createTextNode(" changes analyzed"));
+    if (report.coverage.unanalysed > 0) coverage.append(document.createTextNode(` · ${report.coverage.unanalysed} require original-diff review`));
+    const graphifyState = text(report.context.graphify);
+    if (graphifyState && graphifyState !== "available") {
+      const contextNote = el("span", "jrv-context-note", `Context warning: Graphify ${graphifyState}. ${text(report.context.note)}`.trim());
+      coverage.append(contextNote);
+    } else if (report.context.truncated === true) {
+      coverage.append(el("span", "jrv-context-note", "Context warning: repository context was truncated."));
+    }
+    header.append(coverage);
 
     const toolbar = el("div", "jrv-toolbar");
     const filters = el("div", "jrv-filters");
@@ -263,7 +312,7 @@
       const body = el("div", "jrv-card__body");
       const comparison = el("div", "jrv-comparison");
       comparison.append(makeSection("Old logic", change.oldLogic, "jrv-section--old"), makeSection("New logic", change.newLogic, "jrv-section--new"));
-      body.append(comparison, makeSection("What changed", change.whatChanged), makeSection("Why this priority", change.whyHumanReview, "jrv-section--why"));
+      body.append(comparison, makeSection("What changed", change.whatChanged), makeSection("Human review question", change.whyHumanReview, "jrv-section--why"));
 
       if (change.files.length) {
         const files = el("div", "jrv-files");
@@ -276,6 +325,15 @@
         const evidence = el("details", "jrv-evidence");
         evidence.append(el("summary", "jrv-evidence__summary", `Supporting evidence${change.evidence.length ? ` (${change.evidence.length})` : ""}`));
         const evidenceBody = el("div", "jrv-evidence__body");
+        const reviewNotes = [...change.policyReasons, ...change.contextWarnings];
+        if (reviewNotes.length) {
+          const notes = el("div", "jrv-review-notes");
+          notes.append(el("strong", "jrv-review-notes__title", "Context and policy notes"));
+          const noteList = el("ul", "jrv-review-notes__list");
+          reviewNotes.forEach((note) => noteList.append(el("li", "jrv-review-notes__item", note)));
+          notes.append(noteList);
+          evidenceBody.append(notes);
+        }
         change.evidence.forEach((item) => {
           const entry = el("div", "jrv-evidence__item");
           const line = item.startLine ? `:${item.startLine}${item.endLine && item.endLine !== item.startLine ? `–${item.endLine}` : ""}` : "";
@@ -286,6 +344,13 @@
         if (change.diff) evidenceBody.append(el("pre", "jrv-evidence__snippet jrv-evidence__snippet--diff", change.diff));
         evidence.append(evidenceBody);
         body.append(evidence);
+      } else if (change.policyReasons.length || change.contextWarnings.length) {
+        const notes = el("div", "jrv-review-notes jrv-review-notes--standalone");
+        notes.append(el("strong", "jrv-review-notes__title", "Context and policy notes"));
+        const noteList = el("ul", "jrv-review-notes__list");
+        [...change.policyReasons, ...change.contextWarnings].forEach((note) => noteList.append(el("li", "jrv-review-notes__item", note)));
+        notes.append(noteList);
+        body.append(notes);
       }
       card.append(body);
       list.append(card);
@@ -301,6 +366,7 @@
     mergeDisplay,
     normalizeChange,
     normalizeReport,
+    provenanceText,
     renderReview
   };
 

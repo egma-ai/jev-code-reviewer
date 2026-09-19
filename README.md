@@ -95,8 +95,11 @@ Edit the priority descriptions and `instructions` to steer Jev. `alwaysReviewPat
 
 ```sh
 npm test
+node scripts/test-extension.mjs
 ```
 
 See [architecture](docs/ARCHITECTURE.md), [demo guide](docs/DEMO.md), and [extension details](extension/README.md). Runtime uses Node's built-in modules; Playwright is a development dependency for browser verification.
+
+The extension browser test needs Chromium (`npx playwright install chromium`, or set `CHROMIUM_PATH`) and port 4731 free. It uses an isolated browser profile and synthetic fixtures; real-provider evidence is documented separately in `demo/README.md`.
 
 MIT licensed. Independent project; not affiliated with TypeSafe, OpenAI, GitHub, or Graphify.

@@ -2,7 +2,7 @@
 
 There are two honest demo modes:
 
-- **Recorded replay** is deterministic, needs no provider keys, and is best for a short launch video. It uses a bundled report generated from a real public PR, but it is not live model analysis.
+- **Recorded replay** is deterministic, needs no provider keys, and is best for a short launch video. It uses a real public PR with recorded live Jev classifications and prepared explanation copy. It is not live model analysis; [the provenance record](../demo/README.md) explains why the initial explanations are prepared.
 - **Live analysis** reads a local checkout and calls TypeSafe Jev plus OpenAI. Use it when demonstrating the complete pipeline and network access is reliable.
 
 ## One-time local preparation
@@ -27,7 +27,15 @@ Start the replay server:
 jev-reviewer demo
 ```
 
-Keep that terminal running. Follow the printed instructions to open the matching GitHub `/OWNER/REPOSITORY/pull/NUMBER/files` page. Open **Display settings** in the extension card and paste the token printed for the demo. Confirm the extension shows its **replay** mode badge.
+Keep that terminal running. For the standalone UI, open the printed local `/demo` URL.
+
+For the GitHub-overlay version of the replay, print the local pairing token in a separate human-controlled terminal:
+
+```bash
+jev-reviewer token
+```
+
+Open [the demonstration PR's Files changed page](https://github.com/egma-ai/jev-reviewer/pull/1/files), then paste the token into **Display settings** in the extension card. The token is not printed by `jev-reviewer demo`. Confirm the extension shows its **replay** mode badge.
 
 Suggested 35-second capture:
 
@@ -41,9 +49,9 @@ Suggested 35-second capture:
 
 Use this spoken disclosure near the beginning or in the post text:
 
-> This is a recorded analysis of a real public PR, replayed locally for a deterministic demo.
+> This replay uses recorded live Jev classifications and prepared explanation copy for a real public PR. No model calls happen during playback.
 
-Do not describe replay mode as a live Jev or OpenAI request.
+Do not describe replay mode as a live Jev or OpenAI request, or the prepared explanations as OpenAI output.
 
 ## Live analysis demo
 
@@ -64,7 +72,7 @@ jev-reviewer analyze \
   --repo /absolute/path/to/local/checkout
 ```
 
-Add `--graphify` only if Graphify is installed and you want optional structural context. To demonstrate repository-specific policy, add `--policy /absolute/path/to/policy.json`.
+Graphify enrichment is attempted by default and falls back cleanly when the optional CLI is unavailable. Use `--no-graphify` to skip it; `--graphify` is a redundant explicit enable. To demonstrate repository-specific policy, add `--policy /absolute/path/to/policy.json`.
 
 After analysis completes, serve the cached report:
 

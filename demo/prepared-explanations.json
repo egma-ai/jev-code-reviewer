@@ -1,0 +1,34 @@
+{
+  "examples/demo-app/access.mjs": {
+    "title": "An admin can export only their own workspace's reports",
+    "oldLogic": "Any user whose role is admin passes the export check. The target workspace is not checked, so an admin from another workspace also passes.",
+    "newLogic": "The user must be an admin and their workspace ID must equal the target workspace ID. An admin from another workspace is rejected.",
+    "whatChanged": "Export permission now depends on workspace membership as well as role. The exportPage caller uses this helper before returning rows.",
+    "whyHumanReview": "Should support staff or organization-wide admins be able to export across workspaces? Confirm the intended permission boundary and where both workspace IDs come from.",
+    "signals": ["Authorization boundary changed", "No production deployment; demonstration code"]
+  },
+  "examples/demo-app/pagination.mjs": {
+    "title": "Page sizes are normalized and capped at 100 rows",
+    "oldLogic": "The requested value is converted to a number, with falsy results falling back to 20. Negative, fractional, infinite, and very large numbers are otherwise returned.",
+    "newLogic": "Non-finite numbers and values below 1 fall back to 20. Positive values are rounded down to an integer, then capped at 100.",
+    "whatChanged": "The export caller receives a bounded positive integer. Requests above 100 no longer produce equally large export pages.",
+    "whyHumanReview": "Is 100 the intended export limit, and should invalid sizes fall back to 20 rather than return an error? Confirm those product choices.",
+    "signals": ["Pagination behavior changed", "Boundary values need review"]
+  },
+  "examples/demo-app/greeting.mjs": {
+    "title": "Greeting uses template-string syntax",
+    "oldLogic": "The greeting joins a literal prefix, the supplied name, and an exclamation mark with string concatenation.",
+    "newLogic": "The greeting interpolates the supplied name inside a template string with the same prefix and punctuation.",
+    "whatChanged": "The syntax is shorter and produces the same text for ordinary string names. JavaScript object coercion can differ between concatenation and interpolation, so this is not a universal equivalence for every possible input.",
+    "whyHumanReview": "If callers can pass objects with custom coercion instead of strings, check that edge case. For the intended string-name use, this is a small syntax cleanup.",
+    "signals": ["String formatting cleanup", "Ordinary string inputs preserve output"]
+  },
+  "examples/demo-app/README.md": {
+    "title": "Fix a spelling mistake in the demo documentation",
+    "oldLogic": "The description of the greeting helper spells message as mesage.",
+    "newLogic": "The description spells message correctly.",
+    "whatChanged": "One word in a Markdown document is corrected. No executable code changes in this hunk.",
+    "whyHumanReview": "No product decision is apparent in this spelling correction. The original diff is available if you want to verify it.",
+    "signals": ["Documentation-only spelling correction"]
+  }
+}

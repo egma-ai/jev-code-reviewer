@@ -1,0 +1,487 @@
+{
+  "schemaVersion": 1,
+  "repository": "egma-ai/jev-reviewer",
+  "pullRequest": 1,
+  "url": "https://github.com/egma-ai/jev-reviewer/pull/1",
+  "title": "Demo: workspace-scoped exports and bounded pagination",
+  "baseSha": "ae58171f735a9b23d6338908407c7f847c693d9a",
+  "baseTipSha": "ae58171f735a9b23d6338908407c7f847c693d9a",
+  "headSha": "9c58b51ebeecacb73ade967da64dbfd02ca1ddba",
+  "state": "open",
+  "generatedAt": "2026-09-19T00:41:41.176Z",
+  "mode": "replay",
+  "providers": {
+    "classifier": "TypeSafe Jev (recorded live API results)",
+    "explanations": "Prepared demonstration copy — not an OpenAI API result"
+  },
+  "provenance": {
+    "classification": "live-typesafe-api",
+    "explanations": "prepared-copy",
+    "note": "These priorities are recorded Jev results. The explanation text was prepared for this demo; it is not a live OpenAI API result."
+  },
+  "policyHash": "765249f2498e5658096cab86bde67d2f4a0ef6d49297def5b3beed33373dc3ff",
+  "display": {
+    "P0": true,
+    "P1": false,
+    "P2": false
+  },
+  "context": {
+    "graphify": "available",
+    "files": 20,
+    "skipped": 0,
+    "nodes": 127,
+    "edges": 319,
+    "snapshot": "9c58b51ebeecacb73ade967da64dbfd02ca1ddba",
+    "note": "Bounded static graph of head; missing dynamic/external dependencies remain unknown."
+  },
+  "coverage": {
+    "total": 4,
+    "analyzed": 4,
+    "unanalysed": 0
+  },
+  "changes": [
+    {
+      "title": "Fix a spelling mistake in the demo documentation",
+      "oldLogic": "The description of the greeting helper spells message as mesage.",
+      "newLogic": "The description spells message correctly.",
+      "whatChanged": "One word in a Markdown document is corrected. No executable code changes in this hunk.",
+      "whyHumanReview": "No product decision is apparent in this spelling correction. The original diff is available if you want to verify it.",
+      "signals": [
+        "Jev dominant risk: mechanical"
+      ],
+      "id": "0fd0f3c41fbe3ffb",
+      "priority": "P2",
+      "confidence": 0.99,
+      "providerMetadata": {
+        "jev": {
+          "model": "jev-1.13.0",
+          "probabilities": {
+            "P0": 0.01,
+            "P2": 0.99,
+            "P1": 0
+          },
+          "humanReviewProbability": 0.13,
+          "dominantRisk": "mechanical",
+          "priorityGap": 0.98,
+          "contextTruncated": false,
+          "usage": {
+            "input_tokens": 1569,
+            "output_tokens": 142
+          }
+        }
+      },
+      "modelPriority": "P2",
+      "policyReasons": [],
+      "files": [
+        "examples/demo-app/README.md"
+      ],
+      "diff": "@@ -2,8 +2,8 @@\n \n This tiny, deliberately incomplete app exists only to demonstrate Jev-Reviewer.\n It has no server, database, credentials, or real users. Do not deploy it.\n \n Workspace administrators can export reports. List pages accept a requested size.\n-The greeting helper supplies a short welcome mesage.\n+The greeting helper supplies a short welcome message.\n \n The demonstration PR changes authorization, pagination, and this spelling.\n\n",
+      "evidence": [
+        {
+          "path": "examples/demo-app/README.md",
+          "side": "old",
+          "startLine": 1,
+          "endLine": 10,
+          "snippet": "1: # Demo workspace export\n2: \n3: This tiny, deliberately incomplete app exists only to demonstrate Jev-Reviewer.\n4: It has no server, database, credentials, or real users. Do not deploy it.\n5: \n6: Workspace administrators can export reports. List pages accept a requested size.\n7: The greeting helper supplies a short welcome mesage.\n8: \n9: The demonstration PR changes authorization, pagination, and this spelling.\n10: "
+        },
+        {
+          "path": "examples/demo-app/README.md",
+          "side": "new",
+          "startLine": 1,
+          "endLine": 10,
+          "snippet": "1: # Demo workspace export\n2: \n3: This tiny, deliberately incomplete app exists only to demonstrate Jev-Reviewer.\n4: It has no server, database, credentials, or real users. Do not deploy it.\n5: \n6: Workspace administrators can export reports. List pages accept a requested size.\n7: The greeting helper supplies a short welcome message.\n8: \n9: The demonstration PR changes authorization, pagination, and this spelling.\n10: "
+        }
+      ],
+      "contextWarnings": [],
+      "graph": {
+        "nodes": [],
+        "edges": [],
+        "totalNodes": 127,
+        "totalEdges": 319,
+        "matchedNodes": 0,
+        "snapshot": "9c58b51ebeecacb73ade967da64dbfd02ca1ddba",
+        "scope": "Head snapshot only; static relationships, not proof of runtime impact."
+      }
+    },
+    {
+      "title": "An admin can export only their own workspace's reports",
+      "oldLogic": "Any user whose role is admin passes the export check. The target workspace is not checked, so an admin from another workspace also passes.",
+      "newLogic": "The user must be an admin and their workspace ID must equal the target workspace ID. An admin from another workspace is rejected.",
+      "whatChanged": "Export permission now depends on workspace membership as well as role. The exportPage caller uses this helper before returning rows.",
+      "whyHumanReview": "Should support staff or organization-wide admins be able to export across workspaces? Confirm the intended permission boundary and where both workspace IDs come from.",
+      "signals": [
+        "Jev dominant risk: security",
+        "Jev indicates human review is warranted"
+      ],
+      "id": "6c27d114b5b9da63",
+      "priority": "P0",
+      "confidence": 0.98,
+      "providerMetadata": {
+        "jev": {
+          "model": "jev-1.13.0",
+          "probabilities": {
+            "P1": 0.01,
+            "P2": 0,
+            "P0": 0.99
+          },
+          "humanReviewProbability": 0.86,
+          "dominantRisk": "security",
+          "priorityGap": 0.98,
+          "contextTruncated": false,
+          "usage": {
+            "input_tokens": 2206,
+            "output_tokens": 140
+          }
+        }
+      },
+      "modelPriority": "P0",
+      "policyReasons": [],
+      "files": [
+        "examples/demo-app/access.mjs"
+      ],
+      "diff": "@@ -1,4 +1,4 @@\n // Demonstration code only. No real authorization system uses this helper.\n export function canExportReports(user, workspace) {\n-  return user.role === 'admin';\n+  return user.role === 'admin' && user.workspaceId === workspace.id;\n }\n\n",
+      "evidence": [
+        {
+          "path": "examples/demo-app/access.mjs",
+          "side": "old",
+          "startLine": 1,
+          "endLine": 5,
+          "snippet": "1: // Demonstration code only. No real authorization system uses this helper.\n2: export function canExportReports(user, workspace) {\n3:   return user.role === 'admin';\n4: }\n5: "
+        },
+        {
+          "path": "examples/demo-app/access.mjs",
+          "side": "new",
+          "startLine": 1,
+          "endLine": 5,
+          "snippet": "1: // Demonstration code only. No real authorization system uses this helper.\n2: export function canExportReports(user, workspace) {\n3:   return user.role === 'admin' && user.workspaceId === workspace.id;\n4: }\n5: "
+        }
+      ],
+      "contextWarnings": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "examples_demo_app_access",
+            "label": "access.mjs",
+            "file_type": "code",
+            "source_file": "examples/demo-app/access.mjs",
+            "source_location": "L1",
+            "_origin": "ast"
+          },
+          {
+            "id": "examples_demo_app_access_canexportreports",
+            "label": "canExportReports()",
+            "file_type": "code",
+            "source_file": "examples/demo-app/access.mjs",
+            "source_location": "L2",
+            "_callable": true,
+            "_origin": "ast"
+          },
+          {
+            "id": "examples_demo_app_export",
+            "label": "export.mjs",
+            "file_type": "code",
+            "source_file": "examples/demo-app/export.mjs",
+            "source_location": "L1",
+            "_origin": "ast"
+          },
+          {
+            "id": "examples_demo_app_export_exportpage",
+            "label": "exportPage()",
+            "file_type": "code",
+            "source_file": "examples/demo-app/export.mjs",
+            "source_location": "L4",
+            "_callable": true,
+            "_origin": "ast"
+          }
+        ],
+        "edges": [
+          {
+            "source": "examples_demo_app_access",
+            "target": "examples_demo_app_access_canexportreports",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "examples/demo-app/access.mjs",
+            "source_location": "L2",
+            "weight": 1,
+            "_origin": "ast"
+          },
+          {
+            "source": "examples_demo_app_export",
+            "target": "examples_demo_app_access",
+            "relation": "imports_from",
+            "context": "import",
+            "confidence": "EXTRACTED",
+            "source_file": "examples/demo-app/export.mjs",
+            "source_location": "L1",
+            "weight": 1,
+            "_origin": "ast"
+          },
+          {
+            "source": "examples_demo_app_export",
+            "target": "examples_demo_app_access_canexportreports",
+            "relation": "imports",
+            "context": "import",
+            "confidence": "EXTRACTED",
+            "source_file": "examples/demo-app/export.mjs",
+            "source_location": "L1",
+            "weight": 1,
+            "_origin": "ast"
+          },
+          {
+            "source": "examples_demo_app_export_exportpage",
+            "target": "examples_demo_app_access_canexportreports",
+            "relation": "calls",
+            "context": "call",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1,
+            "source_file": "examples/demo-app/export.mjs",
+            "source_location": "L5",
+            "weight": 1,
+            "_origin": "ast"
+          }
+        ],
+        "totalNodes": 127,
+        "totalEdges": 319,
+        "matchedNodes": 2,
+        "snapshot": "9c58b51ebeecacb73ade967da64dbfd02ca1ddba",
+        "scope": "Head snapshot only; static relationships, not proof of runtime impact."
+      }
+    },
+    {
+      "title": "Greeting uses template-string syntax",
+      "oldLogic": "The greeting joins a literal prefix, the supplied name, and an exclamation mark with string concatenation.",
+      "newLogic": "The greeting interpolates the supplied name inside a template string with the same prefix and punctuation.",
+      "whatChanged": "The syntax is shorter and produces the same text for ordinary string names. JavaScript object coercion can differ between concatenation and interpolation, so this is not a universal equivalence for every possible input.",
+      "whyHumanReview": "If callers can pass objects with custom coercion instead of strings, check that edge case. For the intended string-name use, this is a small syntax cleanup.",
+      "signals": [
+        "Jev dominant risk: mechanical"
+      ],
+      "id": "1e9dc9383095670d",
+      "priority": "P2",
+      "confidence": 1,
+      "providerMetadata": {
+        "jev": {
+          "model": "jev-1.13.0",
+          "probabilities": {
+            "P2": 1,
+            "P1": 0,
+            "P0": 0
+          },
+          "humanReviewProbability": 0.14,
+          "dominantRisk": "mechanical",
+          "priorityGap": 1,
+          "contextTruncated": false,
+          "usage": {
+            "input_tokens": 1611,
+            "output_tokens": 142
+          }
+        }
+      },
+      "modelPriority": "P2",
+      "policyReasons": [],
+      "files": [
+        "examples/demo-app/greeting.mjs"
+      ],
+      "diff": "@@ -1,3 +1,3 @@\n export function greeting(name) {\n-  return 'Welcome, ' + name + '!';\n+  return `Welcome, ${name}!`;\n }\n\n",
+      "evidence": [
+        {
+          "path": "examples/demo-app/greeting.mjs",
+          "side": "old",
+          "startLine": 1,
+          "endLine": 4,
+          "snippet": "1: export function greeting(name) {\n2:   return 'Welcome, ' + name + '!';\n3: }\n4: "
+        },
+        {
+          "path": "examples/demo-app/greeting.mjs",
+          "side": "new",
+          "startLine": 1,
+          "endLine": 4,
+          "snippet": "1: export function greeting(name) {\n2:   return `Welcome, ${name}!`;\n3: }\n4: "
+        }
+      ],
+      "contextWarnings": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "examples_demo_app_greeting",
+            "label": "greeting.mjs",
+            "file_type": "code",
+            "source_file": "examples/demo-app/greeting.mjs",
+            "source_location": "L1",
+            "_origin": "ast"
+          },
+          {
+            "id": "examples_demo_app_greeting_greeting",
+            "label": "greeting()",
+            "file_type": "code",
+            "source_file": "examples/demo-app/greeting.mjs",
+            "source_location": "L1",
+            "_callable": true,
+            "_origin": "ast"
+          }
+        ],
+        "edges": [
+          {
+            "source": "examples_demo_app_greeting",
+            "target": "examples_demo_app_greeting_greeting",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "examples/demo-app/greeting.mjs",
+            "source_location": "L1",
+            "weight": 1,
+            "_origin": "ast"
+          }
+        ],
+        "totalNodes": 127,
+        "totalEdges": 319,
+        "matchedNodes": 2,
+        "snapshot": "9c58b51ebeecacb73ade967da64dbfd02ca1ddba",
+        "scope": "Head snapshot only; static relationships, not proof of runtime impact."
+      }
+    },
+    {
+      "title": "Page sizes are normalized and capped at 100 rows",
+      "oldLogic": "The requested value is converted to a number, with falsy results falling back to 20. Negative, fractional, infinite, and very large numbers are otherwise returned.",
+      "newLogic": "Non-finite numbers and values below 1 fall back to 20. Positive values are rounded down to an integer, then capped at 100.",
+      "whatChanged": "The export caller receives a bounded positive integer. Requests above 100 no longer produce equally large export pages.",
+      "whyHumanReview": "Is 100 the intended export limit, and should invalid sizes fall back to 20 rather than return an error? Confirm those product choices.",
+      "signals": [
+        "Jev dominant risk: behavior",
+        "Jev indicates human review is warranted"
+      ],
+      "id": "7dc7c654bfb9a64a",
+      "priority": "P1",
+      "confidence": 0.96,
+      "providerMetadata": {
+        "jev": {
+          "model": "jev-1.13.0",
+          "probabilities": {
+            "P0": 0.02,
+            "P1": 0.98,
+            "P2": 0
+          },
+          "humanReviewProbability": 0.58,
+          "dominantRisk": "behavior",
+          "priorityGap": 0.96,
+          "contextTruncated": false,
+          "usage": {
+            "input_tokens": 2220,
+            "output_tokens": 140
+          }
+        }
+      },
+      "modelPriority": "P1",
+      "policyReasons": [],
+      "files": [
+        "examples/demo-app/pagination.mjs"
+      ],
+      "diff": "@@ -1,3 +1,5 @@\n export function pageSize(requested) {\n-  return Number(requested) || 20;\n+  const size = Number(requested);\n+  if (!Number.isFinite(size) || size < 1) return 20;\n+  return Math.min(Math.floor(size), 100);\n }\n\n",
+      "evidence": [
+        {
+          "path": "examples/demo-app/pagination.mjs",
+          "side": "old",
+          "startLine": 1,
+          "endLine": 4,
+          "snippet": "1: export function pageSize(requested) {\n2:   return Number(requested) || 20;\n3: }\n4: "
+        },
+        {
+          "path": "examples/demo-app/pagination.mjs",
+          "side": "new",
+          "startLine": 1,
+          "endLine": 6,
+          "snippet": "1: export function pageSize(requested) {\n2:   const size = Number(requested);\n3:   if (!Number.isFinite(size) || size < 1) return 20;\n4:   return Math.min(Math.floor(size), 100);\n5: }\n6: "
+        }
+      ],
+      "contextWarnings": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "examples_demo_app_export",
+            "label": "export.mjs",
+            "file_type": "code",
+            "source_file": "examples/demo-app/export.mjs",
+            "source_location": "L1",
+            "_origin": "ast"
+          },
+          {
+            "id": "examples_demo_app_export_exportpage",
+            "label": "exportPage()",
+            "file_type": "code",
+            "source_file": "examples/demo-app/export.mjs",
+            "source_location": "L4",
+            "_callable": true,
+            "_origin": "ast"
+          },
+          {
+            "id": "examples_demo_app_pagination",
+            "label": "pagination.mjs",
+            "file_type": "code",
+            "source_file": "examples/demo-app/pagination.mjs",
+            "source_location": "L1",
+            "_origin": "ast"
+          },
+          {
+            "id": "examples_demo_app_pagination_pagesize",
+            "label": "pageSize()",
+            "file_type": "code",
+            "source_file": "examples/demo-app/pagination.mjs",
+            "source_location": "L1",
+            "_callable": true,
+            "_origin": "ast"
+          }
+        ],
+        "edges": [
+          {
+            "source": "examples_demo_app_export",
+            "target": "examples_demo_app_pagination",
+            "relation": "imports_from",
+            "context": "import",
+            "confidence": "EXTRACTED",
+            "source_file": "examples/demo-app/export.mjs",
+            "source_location": "L2",
+            "weight": 1,
+            "_origin": "ast"
+          },
+          {
+            "source": "examples_demo_app_export",
+            "target": "examples_demo_app_pagination_pagesize",
+            "relation": "imports",
+            "context": "import",
+            "confidence": "EXTRACTED",
+            "source_file": "examples/demo-app/export.mjs",
+            "source_location": "L2",
+            "weight": 1,
+            "_origin": "ast"
+          },
+          {
+            "source": "examples_demo_app_pagination",
+            "target": "examples_demo_app_pagination_pagesize",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "examples/demo-app/pagination.mjs",
+            "source_location": "L1",
+            "weight": 1,
+            "_origin": "ast"
+          },
+          {
+            "source": "examples_demo_app_export_exportpage",
+            "target": "examples_demo_app_pagination_pagesize",
+            "relation": "calls",
+            "context": "call",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1,
+            "source_file": "examples/demo-app/export.mjs",
+            "source_location": "L6",
+            "weight": 1,
+            "_origin": "ast"
+          }
+        ],
+        "totalNodes": 127,
+        "totalEdges": 319,
+        "matchedNodes": 2,
+        "snapshot": "9c58b51ebeecacb73ade967da64dbfd02ca1ddba",
+        "scope": "Head snapshot only; static relationships, not proof of runtime impact."
+      }
+    }
+  ]
+}

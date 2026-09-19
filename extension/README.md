@@ -20,6 +20,8 @@ The first report can be paired by running `jev-reviewer token` in a human-contro
 - If the service is unavailable or rejects the pairing token, the native GitHub diff stays visible.
 - Priority visibility and expansion defaults are configurable and persist locally.
 - The analyzed head SHA is shown as current, stale, or unverified when GitHub does not expose its head SHA in the page metadata.
+- Provider provenance and analysis coverage are shown above the cards. Recorded Jev decisions with prepared demo copy are explicitly labeled and never presented as live OpenAI output.
+- Graphify/context limitations and policy overrides are surfaced as review notes instead of being hidden in report metadata.
 - Model output is inserted with DOM `textContent`; the extension never injects report HTML.
 
 ## API contract

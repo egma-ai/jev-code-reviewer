@@ -52,17 +52,18 @@ export function matchesGlob(path, pattern) {
   return new RegExp(`^${expression}$`).test(path);
 }
 export function applyPolicy(change, unit, policy) {
-  const reasons = [];
+  const reasons = [...(change.policyReasons || [])];
   let priority = change.priority;
+  if (change.modelPriority && change.modelPriority !== priority) reasons.push('Jev uncertainty rule escalated the displayed priority.');
   if (!['P0', 'P1', 'P2'].includes(priority)) { priority = policy.uncertainPriority; reasons.push('Classifier returned an unsupported priority.'); }
-  if (unit.context.truncated || unit.unsupported) {
+  if (unit.context.truncated || unit.unsupported || change.providerMetadata?.jev?.contextTruncated) {
     priority = ['P0', policy.uncertainPriority].includes(priority) ? priority : policy.uncertainPriority;
     reasons.push('Changed code is incomplete or unsupported; human inspection required.');
   }
   if (policy.alwaysReviewPaths.some(pattern => [unit.path, unit.oldPath].filter(Boolean).some(path => matchesGlob(path, pattern)))) {
     priority = 'P0'; reasons.push('A configured always-review path matched.');
   }
-  return { ...change, priority, modelPriority: change.priority, policyReasons: reasons };
+  return { ...change, priority, modelPriority: change.modelPriority || change.priority, policyReasons: reasons };
 }
 export function reportPath(repository, number, directory = cacheDir()) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repository) || !/^[1-9]\d*$/.test(String(number))) throw new Error('Invalid repository or PR number.');

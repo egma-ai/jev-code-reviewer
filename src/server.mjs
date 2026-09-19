@@ -44,7 +44,19 @@ export async function startServer({ port = 4731, token, directory = cacheDir(), 
         if (!match) return reply(404, { error: 'Unknown endpoint.' });
         const expectedRepository = `${match[1]}/${match[2]}`;
         const expectedPullRequest = Number(match[3]);
-        const report = JSON.parse(await readFile(reportPath(expectedRepository, expectedPullRequest, directory), 'utf8'));
+        let report;
+        try {
+          report = JSON.parse(await readFile(reportPath(expectedRepository, expectedPullRequest, directory), 'utf8'));
+        } catch (error) {
+          if (error.code !== 'ENOENT') throw error;
+          const replay = JSON.parse(await readFile(demoPath, 'utf8'));
+          const replayMatches =
+            replay && typeof replay === 'object' && !Array.isArray(replay) &&
+            String(replay.repository || '').toLowerCase() === expectedRepository.toLowerCase() &&
+            Number(replay.pullRequest) === expectedPullRequest;
+          if (!replayMatches) return reply(404, { error: 'No report yet. The coding agent must finish the review step.' });
+          report = { ...replay, mode: 'replay' };
+        }
         if (
           !report || typeof report !== 'object' || Array.isArray(report) ||
           String(report.repository || '').toLowerCase() !== expectedRepository.toLowerCase() ||
