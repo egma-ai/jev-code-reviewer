@@ -13,6 +13,12 @@ Jev-Reviewer turns a GitHub pull request into a set of behavioral changes:
 
 This is an early, open-source demo for reviewing **your own coding agent's PRs on the same computer**. It does not publish PR comments or send a report to teammates.
 
+![Jev-Reviewer on the real GitHub demonstration PR](docs/preview.png)
+
+[Watch the 25-second demo](https://github.com/egma-ai/jev-reviewer/blob/main/docs/demo.mp4) · [Open the demonstration PR](https://github.com/egma-ai/jev-reviewer/pull/1)
+
+The recording uses real Jev classifications and clearly labeled prepared explanation copy. Live OpenAI explanations are implemented but verification is pending funded API access; see [demo provenance](demo/README.md).
+
 ## Quick demo
 
 Requirements: Node.js 22 or newer.
