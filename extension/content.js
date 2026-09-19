@@ -1,171 +1,182 @@
 (function bootJevReviewer() {
   "use strict";
 
-  const ROOT_ID = "jev-reviewer-root";
-  const DISPLAY_KEY = "displaySettings";
-  const URL_PATTERN = /^\/([^/]+)\/([^/]+)\/pull\/([1-9][0-9]*)\/files\/?$/;
+  const managed = new Map();
+  let report = null;
+  let settings = {};
+  let signature = "";
   let activeKey = "";
-  let nativeDiff = null;
+  let generation = 0;
+  let pending = false;
+  let scheduled = false;
   let lastUrl = location.href;
+  let status = { state: "loading", message: "Loading the local report…", provenance: "" };
 
-  function parsePullRequest(pathname = location.pathname) {
-    const match = pathname.match(URL_PATTERN);
-    if (!match) return null;
-    return { owner: match[1], repo: match[2], pullRequest: Number(match[3]) };
+  function identity() {
+    const match = location.pathname.match(/^\/([^/]+)\/([^/]+)\/pull\/([1-9][0-9]*)\/files\/?$/);
+    return match ? { owner: match[1], repo: match[2], pullRequest: Number(match[3]) } : null;
   }
 
   function currentHeadSha() {
+    const path = document.querySelector(".js-pull-refresh-on-pjax[data-url*='end_commit_oid=']")?.getAttribute("data-url");
     let comparisonHead = "";
-    const comparisonPath = document.querySelector(".js-pull-refresh-on-pjax[data-url*='end_commit_oid=']")?.getAttribute("data-url");
-    if (comparisonPath) {
-      try { comparisonHead = new URL(comparisonPath, location.origin).searchParams.get("end_commit_oid") || ""; }
-      catch { comparisonHead = ""; }
-    }
-    const candidates = [
+    try { if (path) comparisonHead = new URL(path, location.origin).searchParams.get("end_commit_oid"); } catch { /* Unknown head: keep code visible. */ }
+    const candidates = [comparisonHead,
       document.querySelector("[data-head-ref-oid]")?.getAttribute("data-head-ref-oid"),
-      document.querySelector("meta[name='octolytics-dimension-pull_request_head_sha']")?.content,
-      comparisonHead
-    ].filter(Boolean);
-    return candidates.find((value) => /^[a-f0-9]{7,40}$/i.test(value)) || "";
-  }
-
-  function findNativeDiff() {
-    return document.querySelector(
-      "[data-target='diff-layout.mainContainer'], .js-diff-progressive-container, #files_bucket, .js-diff-load-container"
-    );
-  }
-
-  function setNativeDiffVisible(visible) {
-    if (!nativeDiff || !nativeDiff.isConnected) nativeDiff = findNativeDiff();
-    if (!nativeDiff) return;
-    nativeDiff.dataset.jevNativeDiff = "true";
-    nativeDiff.hidden = !visible;
-  }
-
-  function mountRoot() {
-    document.getElementById(ROOT_ID)?.remove();
-    nativeDiff = findNativeDiff();
-    const root = document.createElement("div");
-    root.id = ROOT_ID;
-    if (nativeDiff && nativeDiff.parentNode) nativeDiff.parentNode.insertBefore(root, nativeDiff);
-    else (document.querySelector("main") || document.body).prepend(root);
-    return root;
-  }
-
-  function renderStatus(root, kind, title, copy, retry, savePairingToken) {
-    root.replaceChildren();
-    root.className = `jrv-shell jrv-status jrv-status--${kind}`;
-    const mark = document.createElement("span");
-    mark.className = "jrv-mark";
-    mark.textContent = "J";
-    const content = document.createElement("div");
-    const heading = document.createElement("h2");
-    heading.className = "jrv-status__title";
-    heading.textContent = title;
-    const paragraph = document.createElement("p");
-    paragraph.className = "jrv-status__copy";
-    paragraph.textContent = copy;
-    content.append(heading, paragraph);
-    if (retry) {
-      const button = document.createElement("button");
-      button.className = "jrv-button";
-      button.type = "button";
-      button.textContent = "Retry";
-      button.addEventListener("click", retry);
-      content.append(button);
-    }
-    if (savePairingToken) {
-      const pairing = document.createElement("details");
-      pairing.className = "jrv-status__pairing";
-      const pairingSummary = document.createElement("summary");
-      pairingSummary.textContent = "Set pairing token";
-      const row = document.createElement("div");
-      row.className = "jrv-token-row";
-      const input = document.createElement("input");
-      input.className = "jrv-token-input";
-      input.type = "password";
-      input.autocomplete = "off";
-      input.placeholder = "Paste local pairing token";
-      const save = document.createElement("button");
-      save.className = "jrv-button jrv-button--small";
-      save.type = "button";
-      save.textContent = "Save and retry";
-      save.addEventListener("click", async () => {
-        save.disabled = true;
-        await savePairingToken(input.value.trim());
-      });
-      row.append(input, save);
-      pairing.append(pairingSummary, row);
-      content.append(pairing);
-    }
-    root.append(mark, content);
+      document.querySelector("meta[name='octolytics-dimension-pull_request_head_sha']")?.content
+    ].filter((value) => /^[a-f0-9]{40}$/i.test(value || "")).map((value) => value.toLowerCase());
+    const unique = [...new Set(candidates)];
+    return unique.length === 1 ? unique[0] : "";
   }
 
   function message(payload) {
     return new Promise((resolve) => {
       chrome.runtime.sendMessage(payload, (response) => {
-        if (chrome.runtime.lastError) resolve({ ok: false, error: chrome.runtime.lastError.message });
-        else resolve(response || { ok: false, error: "No response from extension service worker." });
+        resolve(chrome.runtime.lastError ? { ok: false, error: "The extension was reloaded. Refresh this GitHub page." } : response);
       });
     });
   }
 
-  async function load(force = false) {
-    const identity = parsePullRequest();
-    if (!identity) {
-      document.getElementById(ROOT_ID)?.remove();
-      setNativeDiffVisible(true);
-      activeKey = "";
-      return;
-    }
-    const key = `${identity.owner}/${identity.repo}#${identity.pullRequest}`;
-    if (!force && key === activeKey && document.getElementById(ROOT_ID)) return;
-    activeKey = key;
-    const root = mountRoot();
-    renderStatus(root, "loading", "Preparing the human review", "Loading the latest local Jev-Reviewer report…");
-
-    const result = await message({ type: "JEV_REVIEWER_FETCH", ...identity });
-    if (key !== activeKey) return;
-    if (!result.ok) {
-      setNativeDiffVisible(true);
-      renderStatus(
-        root,
-        "unavailable",
-        "Local reviewer unavailable",
-        `${result.error || "Could not load this review."} Start it with “jev-reviewer serve”, then retry. The GitHub diff remains visible.`,
-        () => load(true),
-        async (pairingToken) => {
-          await chrome.storage.local.set({ pairingToken });
-          load(true);
-        }
-      );
-      return;
-    }
-
-    const stored = await chrome.storage.local.get([DISPLAY_KEY, "pairingToken"]);
-    root.className = "";
-    JevReviewerUI.renderReview(root, result.report, {
-      display: stored[DISPLAY_KEY],
-      currentHeadSha: currentHeadSha(),
-      hasPairingToken: Boolean(stored.pairingToken),
-      onRefresh: () => load(true),
-      onNativeDiffChange: setNativeDiffVisible,
-      onDisplayChange: (display) => chrome.storage.local.set({ [DISPLAY_KEY]: display }),
-      onPairingToken: async (pairingToken) => {
-        await chrome.storage.local.set({ pairingToken });
-        load(true);
-      }
-    });
+  function updateStatus(state, copy) {
+    status = { state, message: copy, provenance: report ? JevReviewerUI.provenanceText(report) : "" };
+    document.documentElement.dataset.jevReviewerState = state;
+    message({ type: "JEV_REVIEWER_STATUS_UPDATE", state, message: copy });
   }
 
-  document.addEventListener("turbo:load", () => load());
-  document.addEventListener("pjax:end", () => load());
-  window.addEventListener("popstate", () => setTimeout(() => load(), 0));
-  setInterval(() => {
-    if (location.href !== lastUrl) {
-      lastUrl = location.href;
-      load();
+  function toggle(file) {
+    return file.querySelector(":scope > .js-file-header button.js-details-target[aria-label='Toggle diff contents']");
+  }
+
+  function setExpanded(file, expanded) {
+    const button = toggle(file);
+    if (!button) return;
+    if ((button.getAttribute("aria-expanded") === "true") !== expanded) button.click();
+    // Also supports GitHub's deferred diff markup before its handlers have connected.
+    file.classList.toggle("Details--on", expanded);
+    file.classList.toggle("open", expanded);
+    button?.setAttribute("aria-expanded", String(expanded));
+  }
+
+  function restoreFile(file, record) {
+    record.replacement.remove();
+    record.badge.remove();
+    record.table.hidden = record.wasHidden;
+    record.table.removeAttribute("data-jev-code-hidden");
+    file.removeAttribute("data-jev-file");
+    if (file.isConnected && record.wasExpanded !== null) setExpanded(file, record.wasExpanded);
+  }
+
+  function restore() {
+    for (const [file, record] of managed) restoreFile(file, record);
+    managed.clear();
+  }
+
+  function applyToFiles() {
+    if (!report || settings.logicView === false) return;
+    const freshness = JevReviewerUI.makeFreshness(report, currentHeadSha());
+    if (freshness.state !== "fresh" || !/^[a-f0-9]{40}$/i.test(report.headSha)) {
+      restore();
+      updateStatus(freshness.state === "stale" ? "stale" : "unverified",
+        freshness.state === "stale" ? "This report is for an older commit. Showing GitHub’s code." : "Cannot verify the report’s commit. Showing GitHub’s code.");
+      return;
     }
+    const display = JevReviewerUI.mergeDisplay(settings.displaySettings, report.display);
+    for (const [file, record] of managed) {
+      if (!file.isConnected) { restoreFile(file, record); managed.delete(file); }
+    }
+    for (const file of document.querySelectorAll(".js-file[data-tagsearch-path]")) {
+      const header = file.querySelector(":scope > .js-file-header[data-path]");
+      const path = header?.getAttribute("data-path") || file.getAttribute("data-tagsearch-path");
+      const changes = report.changes.filter((change) => change.files.includes(path));
+      if (!header || !changes.length || changes.some((change) => change.signals.includes("not_analyzed"))) continue;
+      const table = file.querySelector(":scope > .js-file-content table.diff-table");
+      if (!table) continue;
+      const existing = managed.get(file);
+      if (existing?.table === table && existing.replacement.isConnected) continue;
+      if (existing) { restoreFile(file, existing); managed.delete(file); }
+
+      const priority = ["P0", "P1", "P2"].find((level) => changes.some((change) => change.priority === level));
+      const replacement = document.createElement("div");
+      replacement.className = "jrv-native-replacement";
+      replacement.dataset.path = path;
+      JevReviewerUI.renderLogicTable(replacement, changes, { report });
+      const badge = JevReviewerUI.createPriorityBadge(priority, report);
+      badge.classList.add("jrv-native-priority");
+      const nativeToggle = toggle(file);
+      const record = { table, replacement, badge, wasHidden: table.hidden, wasExpanded: nativeToggle ? nativeToggle.getAttribute("aria-expanded") === "true" : null };
+      managed.set(file, record);
+      table.before(replacement);
+      table.hidden = true;
+      table.dataset.jevCodeHidden = "true";
+      (header.querySelector(".file-info") || header).append(badge);
+      file.dataset.jevFile = priority;
+      setExpanded(file, display.expanded[priority]);
+    }
+    updateStatus("ready", managed.size ? `Showing logic for ${managed.size} files. Other files keep their original diff.` : "Report loaded. Waiting for GitHub’s diff tables.");
+  }
+
+  function scheduleApply() {
+    if (scheduled || !report) return;
+    scheduled = true;
+    setTimeout(() => { scheduled = false; applyToFiles(); }, 80);
+  }
+
+  async function load(force = false) {
+    const request = identity();
+    const key = request ? `${request.owner}/${request.repo}#${request.pullRequest}` : "";
+    // A changed page head invalidates visible prose before any asynchronous request.
+    if (key === activeKey && report) applyToFiles();
+    if (!force && pending && key === activeKey) return;
+    const ticket = ++generation;
+    pending = false;
+    if (key !== activeKey) { restore(); report = null; signature = ""; activeKey = key; }
+    if (!request) { updateStatus("idle", "Open a GitHub pull request’s Files changed tab."); return; }
+    settings = await chrome.storage.local.get(["pairingToken", "logicView", "displaySettings"]);
+    if (ticket !== generation) return;
+    if (settings.logicView === false) { restore(); report = null; updateStatus("disabled", "Showing GitHub’s original code."); return; }
+    pending = true;
+    const result = await message({ type: "JEV_REVIEWER_FETCH", ...request });
+    if (ticket !== generation) return;
+    pending = false;
+    if (!result?.ok) {
+      restore(); report = null;
+      updateStatus("unavailable", result?.error || "Local reviewer unavailable. Showing GitHub’s code.");
+      return;
+    }
+    const nextSignature = JSON.stringify(result.report);
+    if (force || !report || signature !== nextSignature) {
+      restore();
+      report = JevReviewerUI.normalizeReport(result.report);
+      signature = nextSignature;
+    }
+    applyToFiles();
+  }
+
+  chrome.runtime.onMessage.addListener((request, _sender, respond) => {
+    if (request?.type === "JEV_REVIEWER_STATUS") { respond(status); return false; }
+    if (request?.type === "JEV_REVIEWER_REFRESH") { load(true).then(() => respond(status)); return true; }
+    return false;
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && ["pairingToken", "logicView", "displaySettings"].some((key) => key in changes)) load(true);
+  });
+  new MutationObserver((mutations) => {
+    const headSelector = ".js-pull-refresh-on-pjax, [data-head-ref-oid], meta[name='octolytics-dimension-pull_request_head_sha']";
+    const headChanged = mutations.some((mutation) =>
+      (mutation.type === "attributes" && mutation.target.matches(headSelector)) ||
+      [...mutation.addedNodes, ...mutation.removedNodes].some((node) => node.nodeType === 1 &&
+        (node.matches(headSelector) || node.querySelector(headSelector))));
+    if (headChanged) applyToFiles();
+    if (mutations.some((mutation) => [...mutation.addedNodes].some((node) => node.nodeType === 1 &&
+      (node.matches(".js-file, table.diff-table, .js-pull-refresh-on-pjax") || node.querySelector(".js-file, table.diff-table, .js-pull-refresh-on-pjax"))))) scheduleApply();
+  }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-url", "data-head-ref-oid", "content"] });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { applyToFiles(); load(); } });
+  document.addEventListener("turbo:load", () => load(true));
+  document.addEventListener("pjax:end", () => load(true));
+  window.addEventListener("popstate", () => load(true));
+  setInterval(() => {
+    if (location.href !== lastUrl) { lastUrl = location.href; load(true); }
   }, 750);
+  setInterval(() => { if (!document.hidden && identity()) load(); }, 20000);
   load();
 })();

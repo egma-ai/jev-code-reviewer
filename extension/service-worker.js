@@ -9,6 +9,8 @@ function validRequest(message) {
       message.type === "JEV_REVIEWER_FETCH" &&
       SAFE_SLUG.test(message.owner || "") &&
       SAFE_SLUG.test(message.repo || "") &&
+      ![".", ".."].includes(message.owner) &&
+      ![".", ".."].includes(message.repo) &&
       /^[1-9][0-9]*$/.test(String(message.pullRequest || ""))
   );
 }
@@ -20,7 +22,17 @@ function reportMatchesRequest(report, message) {
   return actualRepository === expectedRepository && Number(report.pullRequest ?? report.pull_request) === Number(message.pullRequest);
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "JEV_REVIEWER_STATUS_UPDATE") {
+    if (sender.tab?.id && /^https:\/\/github\.com\//.test(sender.url || "")) {
+      const warning = ["stale", "unverified", "unavailable"].includes(message.state);
+      chrome.action.setBadgeText({ tabId: sender.tab.id, text: warning ? "!" : "" });
+      chrome.action.setBadgeBackgroundColor({ tabId: sender.tab.id, color: "#9a6700" });
+      chrome.action.setTitle({ tabId: sender.tab.id, title: `Jev-Reviewer: ${String(message.message || "").slice(0, 180)}` });
+    }
+    sendResponse({ ok: true });
+    return false;
+  }
   if (!validRequest(message)) {
     sendResponse({ ok: false, error: "Invalid GitHub pull request identifier." });
     return false;
@@ -43,7 +55,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       });
       if (!response.ok) {
         const detail = response.status === 401
-          ? "Pairing token rejected. Update it in Display settings."
+          ? "Pairing token rejected. Open Connection in the extension popup. GitHub’s code is still visible."
           : `Local service returned HTTP ${response.status}.`;
         return { ok: false, status: response.status, error: detail };
       }

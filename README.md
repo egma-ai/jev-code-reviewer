@@ -2,20 +2,20 @@
 
 **Your agent wrote the code. You make the call.**
 
-Jev-Reviewer turns a GitHub pull request into a set of behavioral changes:
+Jev-Reviewer turns each changed GitHub file into a behavioral comparison:
 
 - **Old logic** — what the committed code used to do.
 - **New logic** — what it does after the change.
 - **What changed** — the difference in behavior.
 - **Human review question** — the decision or assumption to inspect.
 
-**TypeSafe Jev assigns attention priorities. OpenAI writes the explanations.** P0 cards open automatically; P1 and P2 start collapsed. Supporting code remains available. The priorities suggest where to spend attention, not whether code is correct.
+**TypeSafe Jev assigns attention priorities. OpenAI writes the explanations.** The extension keeps GitHub's PR header, tabs, file rows, filenames, and native collapse controls. It replaces only each file's code table with Old logic and New logic columns, plus a concise change note. P0 files open automatically; P1 and P2 start collapsed. The original code remains one popup toggle away. Priorities suggest where to spend attention, not whether code is correct.
 
 This is an early, open-source demo for reviewing **your own coding agent's PRs on the same computer**. It does not publish PR comments or send a report to teammates.
 
 ![Jev-Reviewer on the real GitHub demonstration PR](docs/preview.png)
 
-[Watch the 25-second demo](https://github.com/egma-ai/jev-reviewer/blob/main/docs/demo.mp4) · [Open the demonstration PR](https://github.com/egma-ai/jev-reviewer/pull/1)
+[Watch the short recording](https://github.com/egma-ai/jev-reviewer/blob/main/docs/demo.mp4) · [Open the demonstration PR](https://github.com/egma-ai/jev-reviewer/pull/1)
 
 The recording uses real Jev classifications and clearly labeled prepared explanation copy. Live OpenAI explanations are implemented but verification is pending funded API access; see [demo provenance](demo/README.md).
 
@@ -30,7 +30,7 @@ npm install
 npm run demo
 ```
 
-Open **http://127.0.0.1:4731/demo**. The bundled replay is explicitly labeled and makes no provider calls. Its provenance is included in `demo/README.md`.
+Open **http://127.0.0.1:4731/demo** for the standalone replay, or load the extension and open [the demonstration PR's Files changed page](https://github.com/egma-ai/jev-reviewer/pull/1/files) to see the native GitHub integration. The bundled replay is explicitly labeled and makes no provider calls. Its provenance is included in `demo/README.md`.
 
 ## Use on a real PR
 
@@ -67,9 +67,12 @@ Keys entered through setup are saved to `~/.config/jev-reviewer/credentials.json
 1. Open `chrome://extensions` and enable **Developer mode**.
 2. Click **Load unpacked** and select this repository's `extension/` folder. No build or store publication is needed.
 3. Run `jev-reviewer token` locally and copy the pairing token. This is a separate local token, not either model API key.
-4. Open the PR's **Files changed** page, expand **Set pairing token**, paste it, and save.
+4. Click the Jev-Reviewer extension icon, then follow **Connection** → **Local pairing token** → **Save**.
+5. Open the PR's **Files changed** page. In the popup, enable **Show logic in place of code** and use **Refresh report** after regenerating analysis.
 
-The extension fetches the report from `127.0.0.1:4731`. It does not access your filesystem or model credentials. Refresh reloads an existing report; there is no "Analyze PR" button. The CLI/agent generates the report.
+The extension fetches the report from `127.0.0.1:4731`. It does not access your filesystem or model credentials. All Jev-Reviewer controls—including connection, refresh, the code/logic toggle, and expand-by-default preferences—live in the extension popup. There is no on-page dashboard, toolbar, or "Analyze PR" button; the CLI/agent generates the report.
+
+When enabled with a current report, the extension replaces only the native diff table inside each matching GitHub file row and adds its P0/P1/P2 badge to the native file header. Turning the view off restores the original tables. If the server is missing or the report is stale or cannot be verified, native code stays visible; a warning badge and the popup explain why.
 
 ## Install the agent skill
 
@@ -90,9 +93,9 @@ Edit the priority descriptions and `instructions` to steer Jev. `alwaysReviewPat
 ## Scope and limitations
 
 - Units are diff hunks with surrounding old/new committed source. Related source and Graphify neighbors provide bounded context. Cross-hunk behavior can still be missed.
-- Up to 12 units are analyzed by default. Excess units remain visible as **P0 / not analyzed**; increase `--max-units` explicitly for larger PRs.
+- Up to 12 units are analyzed by default. Excess units are recorded as **P0 / not analyzed**; the extension leaves affected files as native code. Increase `--max-units` explicitly for larger PRs.
 - The Graphify snapshot is head-only, bounded to 500 supported code files / about 5 MB. Missing Graphify or unsupported source is surfaced in the report.
-- The report records base/head commits. The extension flags a stale report when the page exposes a different head; otherwise it says freshness is unverified. Always verify the revision before relying on a report.
+- The report records base/head commits. The extension refuses to replace code when the report is stale or GitHub does not expose enough information to verify freshness. Native code stays visible, with a warning badge on the extension icon and status in the popup.
 - The demo supports github.com and a local clone. No GitHub App is required. Remote/cloud agents need an additional transport and are outside v0.1.
 - Private repositories use your existing local GitHub access. This is local report delivery, **not fully offline analysis**: provider requests transmit source context.
 - API failures are explicit; the live command never silently substitutes a fixture for a provider result.

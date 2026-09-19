@@ -28,7 +28,7 @@
   }
 
   function normalizeEvidence(item) {
-    if (typeof item === "string") return { path: "", snippet: text(item) };
+    if (typeof item === "string") return { path: "", startLine: null, endLine: null, side: "new", snippet: text(item) };
     if (!item || typeof item !== "object") return null;
     const startLine = Number(item.startLine ?? item.start_line);
     const endLine = Number(item.endLine ?? item.end_line);
@@ -52,7 +52,7 @@
       whatChanged: text(source.whatChanged ?? source.what_changed, "No change summary was provided."),
       whyHumanReview: text(
         source.whyHumanReview ?? source.why_human_review ?? source.reason ?? source.rationale,
-        "No priority explanation was provided. Treating incomplete analysis conservatively."
+        "No human-review question was provided. Treating incomplete analysis conservatively."
       ),
       files: asArray(source.files, 50).map((file) => text(typeof file === "string" ? file : file && file.path)).filter(Boolean),
       evidence: asArray(source.evidence, 50).map(normalizeEvidence).filter(Boolean),
@@ -116,31 +116,14 @@
     };
   }
 
-  function el(tag, className, content) {
-    const node = document.createElement(tag);
-    if (className) node.className = className;
-    if (content !== undefined) node.textContent = String(content);
-    return node;
-  }
-
-  function makeSection(label, value, modifier = "") {
-    const section = el("section", `jrv-section ${modifier}`.trim());
-    section.append(el("h4", "jrv-section__label", label), el("p", "jrv-section__text", value));
-    return section;
-  }
-
-  function shortSha(sha) {
-    return sha ? sha.slice(0, 8) : "unknown";
-  }
-
   function makeFreshness(report, currentHeadSha) {
     if (!currentHeadSha || !report.headSha) {
-      return { state: "unverified", label: `Head ${shortSha(report.headSha)} · freshness unverified` };
+      return { state: "unverified", label: `Head ${report.headSha ? report.headSha.slice(0, 8) : "unknown"} · freshness unverified` };
     }
     const matches = currentHeadSha.startsWith(report.headSha) || report.headSha.startsWith(currentHeadSha);
     return matches
-      ? { state: "fresh", label: `Current at ${shortSha(report.headSha)}` }
-      : { state: "stale", label: `Stale · analyzed ${shortSha(report.headSha)}, page ${shortSha(currentHeadSha)}` };
+      ? { state: "fresh", label: `Current at ${report.headSha.slice(0, 8)}` }
+      : { state: "stale", label: `Stale · analyzed ${report.headSha.slice(0, 8)}, page ${currentHeadSha.slice(0, 8)}` };
   }
 
   function provenanceText(report) {
@@ -155,218 +138,137 @@
     return `${classification} · ${explanations}`;
   }
 
+  function el(tag, className, content) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (content !== undefined) node.textContent = String(content);
+    return node;
+  }
+
+  function priorityDescription(value) {
+    if (value === "P0") return "must review";
+    if (value === "P1") return "review if time permits";
+    return "automated review sufficient";
+  }
+
+  function createPriorityBadge(value, rawReport = {}) {
+    const report = rawReport && Array.isArray(rawReport.changes) ? rawReport : normalizeReport(rawReport);
+    const normalized = priority(value);
+    const badge = el("span", `jrv-priority jrv-priority--${normalized.toLowerCase()}`, normalized);
+    const notes = [`${normalized}: ${priorityDescription(normalized)}`];
+    if (report.mode === "replay") notes.push("recorded review");
+    if (report.provenance?.explanations === "prepared-copy") notes.push("prepared demo explanations");
+    if (report.context?.graphify && report.context.graphify !== "available") notes.push(`Graphify ${text(report.context.graphify)}`);
+    badge.title = notes.join(" · ");
+    badge.setAttribute("aria-label", notes.join(". "));
+    return badge;
+  }
+
+  function isNormalizedChange(change) {
+    return Boolean(change && typeof change === "object" && typeof change.oldLogic === "string" && typeof change.newLogic === "string");
+  }
+
+  function renderLogicTable(container, rawChanges, options = {}) {
+    if (!container || typeof container.append !== "function") throw new TypeError("renderLogicTable requires a DOM container.");
+    const report = options.report && Array.isArray(options.report.changes) ? options.report : normalizeReport(options.report || {});
+    const changes = asArray(rawChanges, 500).map((change, index) => isNormalizedChange(change) ? change : normalizeChange(change, index));
+    const mixedPriorities = new Set(changes.map((change) => change.priority)).size > 1;
+
+    const table = el("table", "jrv-logic-table");
+    const thead = el("thead", "jrv-logic-table__head");
+    const headerRow = el("tr");
+    const oldHeader = el("th", "jrv-logic-table__heading", "Old logic");
+    const newHeader = el("th", "jrv-logic-table__heading", "New logic");
+    oldHeader.scope = "col";
+    newHeader.scope = "col";
+    headerRow.append(oldHeader, newHeader);
+    thead.append(headerRow);
+    table.append(thead);
+
+    const tbody = el("tbody");
+    changes.forEach((change) => {
+      const row = el("tr", "jrv-logic-table__row");
+      row.dataset.changeId = change.id;
+      const oldCell = el("td", "jrv-old-logic");
+      const newCell = el("td", "jrv-new-logic");
+      if (mixedPriorities) oldCell.append(createPriorityBadge(change.priority, report));
+      oldCell.append(el("p", "jrv-logic-text", change.oldLogic));
+      newCell.append(el("p", "jrv-logic-text", change.newLogic));
+
+      const info = el("details", "jrv-change-note");
+      const summary = el("summary", "jrv-change-note__summary");
+      const provenance = provenanceText(report);
+      summary.title = `${change.whyHumanReview} · ${provenance}`;
+      summary.setAttribute("aria-label", `What changed: ${change.whatChanged}. Human review question: ${change.whyHumanReview}. ${provenance}.`);
+      const icon = el("span", "jrv-change-note__icon", "ⓘ");
+      icon.setAttribute("aria-hidden", "true");
+      summary.append(icon, document.createTextNode(change.whatChanged));
+      info.append(summary, el("p", "jrv-change-note__detail", change.whyHumanReview));
+      newCell.append(info);
+      row.append(oldCell, newCell);
+      tbody.append(row);
+    });
+    table.append(tbody);
+    container.append(table);
+    return table;
+  }
+
+  function fileGroups(changes) {
+    const groups = new Map();
+    changes.forEach((change) => {
+      const path = change.files[0] || "Changed logic";
+      if (!groups.has(path)) groups.set(path, []);
+      groups.get(path).push(change);
+    });
+    return [...groups.entries()];
+  }
+
+  function highestPriority(changes) {
+    return changes.reduce((current, change) => {
+      return PRIORITIES.indexOf(change.priority) < PRIORITIES.indexOf(current) ? change.priority : current;
+    }, "P2");
+  }
+
   function renderReview(container, rawReport, options = {}) {
-    if (!container || typeof container.replaceChildren !== "function") {
-      throw new TypeError("renderReview requires a DOM container.");
-    }
+    if (!container || typeof container.replaceChildren !== "function") throw new TypeError("renderReview requires a DOM container.");
     const report = normalizeReport(rawReport);
     const display = mergeDisplay(options.display, report.display);
-    const onDisplayChange = typeof options.onDisplayChange === "function" ? options.onDisplayChange : () => {};
-    const onPairingToken = typeof options.onPairingToken === "function" ? options.onPairingToken : null;
-    const onRefresh = typeof options.onRefresh === "function" ? options.onRefresh : null;
-    const onNativeDiffChange = typeof options.onNativeDiffChange === "function" ? options.onNativeDiffChange : () => {};
-    const freshness = makeFreshness(report, text(options.currentHeadSha));
-    if (freshness.state !== "fresh") display.showNativeDiff = true;
-    const counts = Object.fromEntries(PRIORITIES.map((p) => [p, report.changes.filter((c) => c.priority === p).length]));
-    const preparedCopy = report.provenance.explanations === "prepared-copy";
-
     container.replaceChildren();
-    container.classList.add("jrv-shell");
+    container.className = "jrv-files";
 
-    const header = el("header", "jrv-header");
-    const brandRow = el("div", "jrv-brand-row");
-    const brand = el("div", "jrv-brand");
-    brand.append(el("span", "jrv-mark", "J"), el("span", "jrv-brand__name", "Jev-Reviewer"), el("span", "jrv-mode", report.mode));
-    const actions = el("div", "jrv-actions");
-    if (onRefresh) {
-      const refresh = el("button", "jrv-button jrv-button--quiet", "Refresh");
-      refresh.type = "button";
-      refresh.addEventListener("click", onRefresh);
-      actions.append(refresh);
-    }
-    if (typeof options.onNativeDiffChange === "function") {
-      const nativeButton = el("button", "jrv-button", display.showNativeDiff ? "Hide code diff" : "View code diff");
-      nativeButton.type = "button";
-      nativeButton.addEventListener("click", () => {
-        display.showNativeDiff = !display.showNativeDiff;
-        nativeButton.textContent = display.showNativeDiff ? "Hide code diff" : "View code diff";
-        onNativeDiffChange(display.showNativeDiff);
-        onDisplayChange(display);
-      });
-      actions.append(nativeButton);
-    }
-    brandRow.append(brand, actions);
+    fileGroups(report.changes).forEach(([path, changes]) => {
+      const filePriority = highestPriority(changes);
+      if (!display.visible[filePriority]) return;
+      const file = el("details", "jrv-file");
+      file.dataset.priority = filePriority;
+      file.open = Boolean(display.expanded[filePriority]);
 
-    const heading = el("div", "jrv-heading");
-    heading.append(el("h2", "jrv-title", report.title));
-    const freshnessNode = el("span", `jrv-freshness jrv-freshness--${freshness.state}`, freshness.label);
-    freshnessNode.title = report.generatedAt ? `Generated ${report.generatedAt}` : "Generation time unavailable";
-    heading.append(freshnessNode);
-    header.append(brandRow, heading);
-
-    const provenance = el("aside", `jrv-provenance${preparedCopy ? " jrv-provenance--prepared" : ""}`);
-    const provenanceHeading = el("strong", "jrv-provenance__title", provenanceText(report));
-    provenance.append(provenanceHeading);
-    if (report.provenance.note) provenance.append(el("span", "jrv-provenance__note", report.provenance.note));
-    header.append(provenance);
-
-    const coverage = el("div", `jrv-coverage${report.coverage.unanalysed > 0 ? " jrv-coverage--partial" : ""}`);
-    coverage.append(el("strong", "jrv-coverage__count", `${report.coverage.analyzed}/${report.coverage.total}`), document.createTextNode(" changes analyzed"));
-    if (report.coverage.unanalysed > 0) coverage.append(document.createTextNode(` · ${report.coverage.unanalysed} require original-diff review`));
-    const graphifyState = text(report.context.graphify);
-    if (graphifyState && graphifyState !== "available") {
-      const contextNote = el("span", "jrv-context-note", `Context warning: Graphify ${graphifyState}. ${text(report.context.note)}`.trim());
-      coverage.append(contextNote);
-    } else if (report.context.truncated === true) {
-      coverage.append(el("span", "jrv-context-note", "Context warning: repository context was truncated."));
-    }
-    header.append(coverage);
-
-    const toolbar = el("div", "jrv-toolbar");
-    const filters = el("div", "jrv-filters");
-    filters.setAttribute("aria-label", "Visible priorities");
-    PRIORITIES.forEach((p) => {
-      const button = el("button", `jrv-filter jrv-filter--${p.toLowerCase()}`);
-      button.type = "button";
-      button.dataset.priority = p;
-      button.setAttribute("aria-pressed", String(display.visible[p]));
-      button.append(el("span", "jrv-filter__dot"), el("span", "jrv-filter__name", p), el("span", "jrv-filter__count", counts[p]));
-      button.addEventListener("click", () => {
-        display.visible[p] = !display.visible[p];
-        button.setAttribute("aria-pressed", String(display.visible[p]));
-        container.querySelectorAll(`.jrv-card[data-priority="${p}"]`).forEach((card) => { card.hidden = !display.visible[p]; });
-        onDisplayChange(display);
-      });
-      filters.append(button);
-    });
-
-    const settings = el("details", "jrv-settings");
-    settings.append(el("summary", "jrv-settings__summary", "Display settings"));
-    const settingsBody = el("div", "jrv-settings__body");
-    const expandLabel = el("span", "jrv-settings__label", "Expand by default");
-    const expandRow = el("div", "jrv-expand-row");
-    PRIORITIES.forEach((p) => {
-      const label = el("label", "jrv-checkbox");
-      const input = el("input");
-      input.type = "checkbox";
-      input.checked = Boolean(display.expanded[p]);
-      input.addEventListener("change", () => {
-        display.expanded[p] = input.checked;
-        container.querySelectorAll(`details.jrv-card[data-priority="${p}"]`).forEach((card) => { card.open = input.checked; });
-        onDisplayChange(display);
-      });
-      label.append(input, document.createTextNode(` ${p}`));
-      expandRow.append(label);
-    });
-    settingsBody.append(expandLabel, expandRow);
-    if (onPairingToken) {
-      const tokenLabel = el("label", "jrv-token-label", "Pairing token");
-      const tokenRow = el("div", "jrv-token-row");
-      const tokenInput = el("input", "jrv-token-input");
-      tokenInput.type = "password";
-      tokenInput.autocomplete = "off";
-      tokenInput.placeholder = options.hasPairingToken ? "Token saved" : "Paste local pairing token";
-      const save = el("button", "jrv-button jrv-button--small", "Save");
-      save.type = "button";
-      save.addEventListener("click", async () => {
-        await onPairingToken(tokenInput.value.trim());
-        tokenInput.value = "";
-        tokenInput.placeholder = "Token saved";
-        save.textContent = "Saved";
-        setTimeout(() => { save.textContent = "Save"; }, 1200);
-      });
-      tokenRow.append(tokenInput, save);
-      tokenLabel.append(tokenRow);
-      settingsBody.append(tokenLabel);
-    }
-    settings.append(settingsBody);
-    toolbar.append(filters, settings);
-    header.append(toolbar);
-    container.append(header);
-
-    const list = el("div", "jrv-list");
-    if (!report.changes.length) {
-      const empty = el("div", "jrv-empty");
-      empty.append(el("h3", "jrv-empty__title", "No semantic changes found"), el("p", "jrv-empty__copy", "The report is valid, but it contains no review cards."));
-      list.append(empty);
-    }
-
-    report.changes.forEach((change) => {
-      const card = el("details", `jrv-card jrv-card--${change.priority.toLowerCase()}`);
-      card.dataset.priority = change.priority;
-      card.dataset.changeId = change.id;
-      card.open = Boolean(display.expanded[change.priority]);
-      card.hidden = !display.visible[change.priority];
-      const summary = el("summary", "jrv-card__summary");
-      const priorityNode = el("span", `jrv-priority jrv-priority--${change.priority.toLowerCase()}`, change.priority);
-      const titleWrap = el("span", "jrv-card__title-wrap");
-      titleWrap.append(el("span", "jrv-card__title", change.title));
-      const meta = [];
-      if (change.files.length) meta.push(`${change.files.length} ${change.files.length === 1 ? "file" : "files"}`);
-      if (meta.length) titleWrap.append(el("span", "jrv-card__meta", meta.join(" · ")));
-      const chevron = el("span", "jrv-chevron");
+      const summary = el("summary", "jrv-file__header");
+      const chevron = el("span", "jrv-file__chevron");
       chevron.setAttribute("aria-hidden", "true");
-      summary.append(priorityNode, titleWrap, chevron);
-      card.append(summary);
+      summary.append(chevron, el("span", "jrv-file__path", path), createPriorityBadge(filePriority, report));
+      file.append(summary);
 
-      const body = el("div", "jrv-card__body");
-      const comparison = el("div", "jrv-comparison");
-      comparison.append(makeSection("Old logic", change.oldLogic, "jrv-section--old"), makeSection("New logic", change.newLogic, "jrv-section--new"));
-      body.append(comparison, makeSection("What changed", change.whatChanged), makeSection("Human review question", change.whyHumanReview, "jrv-section--why"));
-
-      if (change.files.length) {
-        const files = el("div", "jrv-files");
-        files.append(el("span", "jrv-files__label", "Affected files"));
-        change.files.forEach((file) => files.append(el("code", "jrv-file", file)));
-        body.append(files);
-      }
-
-      if (change.evidence.length || change.diff) {
-        const evidence = el("details", "jrv-evidence");
-        evidence.append(el("summary", "jrv-evidence__summary", `Supporting evidence${change.evidence.length ? ` (${change.evidence.length})` : ""}`));
-        const evidenceBody = el("div", "jrv-evidence__body");
-        const reviewNotes = [...change.policyReasons, ...change.contextWarnings];
-        if (reviewNotes.length) {
-          const notes = el("div", "jrv-review-notes");
-          notes.append(el("strong", "jrv-review-notes__title", "Context and policy notes"));
-          const noteList = el("ul", "jrv-review-notes__list");
-          reviewNotes.forEach((note) => noteList.append(el("li", "jrv-review-notes__item", note)));
-          notes.append(noteList);
-          evidenceBody.append(notes);
-        }
-        change.evidence.forEach((item) => {
-          const entry = el("div", "jrv-evidence__item");
-          const line = item.startLine ? `:${item.startLine}${item.endLine && item.endLine !== item.startLine ? `–${item.endLine}` : ""}` : "";
-          if (item.path) entry.append(el("code", "jrv-evidence__path", `${item.path}${line}`));
-          if (item.snippet) entry.append(el("pre", "jrv-evidence__snippet", item.snippet));
-          evidenceBody.append(entry);
-        });
-        if (change.diff) evidenceBody.append(el("pre", "jrv-evidence__snippet jrv-evidence__snippet--diff", change.diff));
-        evidence.append(evidenceBody);
-        body.append(evidence);
-      } else if (change.policyReasons.length || change.contextWarnings.length) {
-        const notes = el("div", "jrv-review-notes jrv-review-notes--standalone");
-        notes.append(el("strong", "jrv-review-notes__title", "Context and policy notes"));
-        const noteList = el("ul", "jrv-review-notes__list");
-        [...change.policyReasons, ...change.contextWarnings].forEach((note) => noteList.append(el("li", "jrv-review-notes__item", note)));
-        notes.append(noteList);
-        body.append(notes);
-      }
-      card.append(body);
-      list.append(card);
+      const body = el("div", "jrv-file__body");
+      renderLogicTable(body, changes, { report });
+      file.append(body);
+      container.append(file);
     });
-    container.append(list);
-    onNativeDiffChange(display.showNativeDiff);
-    return { report, display, counts, freshness };
+
+    if (!report.changes.length) container.append(el("p", "jrv-empty", "No semantic changes found."));
+    return { report, display };
   }
 
   global.JevReviewerUI = {
     DEFAULT_DISPLAY,
+    PRIORITIES,
+    createPriorityBadge,
     makeFreshness,
     mergeDisplay,
     normalizeChange,
     normalizeReport,
     provenanceText,
+    renderLogicTable,
     renderReview
   };
 

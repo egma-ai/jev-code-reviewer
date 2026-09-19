@@ -1,2 +1,3 @@
-#jev-reviewer-root { display: block; width: 100%; }
-[data-jev-native-diff="true"][hidden] { display: none !important; }
+table[data-jev-code-hidden="true"] { display: none !important; }
+.jrv-native-replacement { width: 100%; }
+.js-file-header .jrv-native-priority { margin-left: 8px; vertical-align: middle; }

@@ -17,7 +17,8 @@ Local checkout + git + gh
 127.0.0.1 local server -- pairing token --> unpacked Chrome extension
                                                 |
                                                 v
-                                     GitHub Files changed page
+                             Native GitHub file rows and headers
+                             (only diff tables are replaced)
 ```
 
 ## Components
@@ -45,7 +46,7 @@ OpenAI generates the natural-language fields shown to the reviewer:
 - what changed
 - why the change may need human attention
 
-Those summaries are an interface over the code, not an authoritative replacement for it. The extension keeps the GitHub diff available as evidence.
+Those summaries are an interface over the code, not an authoritative replacement for it. The extension can restore the untouched GitHub diff tables immediately from its popup.
 
 ### Priority classification
 
@@ -61,9 +62,23 @@ Policy is local operator configuration read from the working directory, separate
 
 ### Cache and browser bridge
 
-Completed reports live below `~/.cache/jev-reviewer/reviews`. The local server reads that cache and binds to loopback, so it is reachable only from the same computer under normal configuration. For a GitHub PR, the extension requests `GET http://127.0.0.1:4731/api/reviews/{owner}/{repo}/{pullRequest}` with the pairing token as a bearer token. It matches the response to the current PR and inserts review cards into the page. It does not read arbitrary local files.
+Completed reports live below `~/.cache/jev-reviewer/reviews`. The local server reads that cache and binds to loopback, so it is reachable only from the same computer under normal configuration. For a GitHub PR, the extension requests `GET http://127.0.0.1:4731/api/reviews/{owner}/{repo}/{pullRequest}` with the pairing token as a bearer token. It matches the response to the current PR. It does not read arbitrary local files.
 
-The pairing token is not a model-provider key, but it should still be treated as local access material. A coding agent should never run `jev-reviewer token` into its transcript; the human copies it directly to **Display settings** in the extension card. Chrome stores it locally for subsequent requests.
+The pairing token is not a model-provider key, but it should still be treated as local access material. A coding agent should never run `jev-reviewer token` into its transcript; the human follows **Connection** → **Local pairing token** → **Save** in the extension action popup. Chrome stores it locally for subsequent requests.
+
+### Native GitHub integration
+
+The extension does not replace the PR page or add a global dashboard. For each matching changed file, it preserves GitHub's existing file wrapper and header—including the filename, anchor, sticky behavior, and native collapse chevron—and replaces only the diff table inside the file's content area. The replacement shows:
+
+- a P0/P1/P2 badge in the native file header;
+- Old logic and New logic columns in place of code rows; and
+- an informational change note beneath New logic.
+
+One file can contain multiple analyzed change units, so the extension groups every matching unit into that file's replacement. GitHub's native chevron continues to expand or collapse the whole content area.
+
+Connection, **Refresh report**, **Show logic in place of code**, and expand-by-default settings live in the extension popup. The content script contains no Analyze action; refresh only reloads a report already produced by the CLI or agent.
+
+The extension fails open to source code. When the feature is off, the local server is unavailable, no report matches, or freshness is stale or unverified, it leaves every native diff table in place. Unavailable or unverifiable reports add a warning badge to the extension icon while the popup provides the detailed status; it does not inject an on-page warning banner.
 
 ## Data and trust boundaries
 

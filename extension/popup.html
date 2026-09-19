@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Jev-Reviewer</title>
+    <link rel="stylesheet" href="popup.css">
+    <script src="popup.js" defer></script>
+  </head>
+  <body>
+    <h1>Jev-Reviewer</h1>
+    <label class="check"><input type="checkbox" id="logic-view"> Show logic in place of code</label>
+    <p id="status" role="status">Loading…</p>
+    <p id="provenance" class="muted"></p>
+    <button id="refresh" type="button">Refresh report</button>
+    <details id="connection">
+      <summary>Connection</summary>
+      <p class="muted">Run <code>jev-reviewer serve</code>, then paste the token from <code>jev-reviewer token</code>.</p>
+      <label for="token">Local pairing token</label>
+      <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste pairing token">
+      <button id="save" type="button">Save</button>
+    </details>
+    <details>
+      <summary>Expand by default</summary>
+      <label class="check"><input type="checkbox" data-priority="P0"> P0 · Must review</label>
+      <label class="check"><input type="checkbox" data-priority="P1"> P1 · If time permits</label>
+      <label class="check"><input type="checkbox" data-priority="P2"> P2 · Automated review</label>
+    </details>
+  </body>
+</html>

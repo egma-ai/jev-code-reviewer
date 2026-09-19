@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Jev-Reviewer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A natural-language-first, priority-ranked view of GitHub pull requests.",
   "permissions": ["storage"],
   "host_permissions": ["http://127.0.0.1:4731/*"],
@@ -17,6 +17,7 @@
     }
   ],
   "action": {
-    "default_title": "Jev-Reviewer"
+    "default_title": "Jev-Reviewer",
+    "default_popup": "popup.html"
   }
 }

@@ -1,7 +1,7 @@
 # Launch assets
 
-- `docs/demo.mp4`: 25-second recording on the actual public GitHub PR, with the unpacked extension connected to the local report server.
-- `docs/preview.png`: screenshot of the same real PR and report.
+- `docs/demo.mp4`: short recording on the actual public GitHub PR, with the unpacked extension connected to the local report server and logic shown inside GitHub's native file rows.
+- `docs/preview.png`: screenshot of the same real PR with its native header, tabs, filenames, and file controls preserved.
 - [PR #1](https://github.com/egma-ai/jev-reviewer/pull/1): intentionally open, non-deployed example changes.
 - `scripts/capture-real-extension.mjs`: repeatable recording, requires local server on port 4731, Chromium/Playwright, and ffmpeg. Reads the local pairing token programmatically without printing it or putting it in the video.
 
@@ -13,7 +13,7 @@ The recording shows real Jev decisions and **prepared explanation text**. Keep t
 >
 > Old behavior → new behavior → the decision a human should check.
 >
-> Jev ranks the changes by attention needed. The Chrome extension puts those cards directly in GitHub.
+> Jev ranks the changes by attention needed. The Chrome extension replaces only the code table in each GitHub file row with the old and new logic—the rest of GitHub stays GitHub.
 >
 > Early OSS demo, MIT: https://github.com/egma-ai/jev-reviewer
 

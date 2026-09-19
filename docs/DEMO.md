@@ -35,16 +35,16 @@ For the GitHub-overlay version of the replay, print the local pairing token in a
 jev-reviewer token
 ```
 
-Open [the demonstration PR's Files changed page](https://github.com/egma-ai/jev-reviewer/pull/1/files), then paste the token into **Display settings** in the extension card. The token is not printed by `jev-reviewer demo`. Confirm the extension shows its **replay** mode badge.
+Click the Jev-Reviewer extension icon, then follow **Connection** → **Local pairing token** → **Save**. Open [the demonstration PR's Files changed page](https://github.com/egma-ai/jev-reviewer/pull/1/files), then enable **Show logic in place of code** in the popup. The token is not printed by `jev-reviewer demo`.
 
 Suggested 35-second capture:
 
-1. Show the ordinary PR diff for two seconds: many files and lines, no obvious review path.
-2. Enable Jev-Reviewer and show the summary count: P0, P1, and P2.
-3. Open a P0 card. Point to **Old logic**, **New logic**, **What changed**, and **Why human review**.
-4. Show P1 and P2 collapsed by default.
-5. Reveal the underlying GitHub diff to demonstrate that the prose is a navigation layer, not hidden evidence.
-6. Change a display filter or expand a lower-priority group.
+1. Show the ordinary PR diff for two seconds: many lines, no obvious review path.
+2. Open the extension popup and enable **Show logic in place of code**.
+3. Return to the same GitHub page. Its PR header, tabs, filenames, file rows, and native chevrons remain unchanged; P0/P1/P2 badges now sit in the file headers.
+4. Expand a P0 file. Point to the side-by-side **Old logic** and **New logic** columns and the change note beneath New logic.
+5. Show P1 and P2 files collapsed by default, then use GitHub's native chevron to open one.
+6. Turn **Show logic in place of code** off in the popup to restore the original diff tables.
 7. End on: “AI made code generation cheap. Jev-Reviewer routes scarce human attention.”
 
 Use this spoken disclosure near the beginning or in the post text:
@@ -80,13 +80,13 @@ After analysis completes, serve the cached report:
 jev-reviewer serve --port 4731
 ```
 
-In a separate human-controlled terminal, print the pairing token, open **Display settings** in the extension card, and paste it there:
+In a separate human-controlled terminal, print the pairing token. In the extension popup, follow **Connection** → **Local pairing token** → **Save**:
 
 ```bash
 jev-reviewer token
 ```
 
-Do not ask a coding agent to print the token. Open the exact PR's **Files changed** page and confirm the report corresponds to the analyzed commit before recording.
+Do not ask a coding agent to print the token. Open the exact PR's **Files changed** page, enable **Show logic in place of code**, and confirm the report corresponds to the analyzed commit before recording. **Refresh report** reloads an existing report; it does not run analysis.
 
 ## Agent-driven PR flow
 
@@ -101,7 +101,8 @@ This is best effort, not a guaranteed hook. If someone updates the PR outside th
 ## Before publishing
 
 - Ensure no provider key, credentials file, pairing token, private source, or unrelated browser tab is visible.
-- Keep the replay badge visible when using recorded data.
+- Keep the replay disclosure in the video or accompanying post when using recorded data.
 - Verify the PR URL and code are public if they appear in the video.
-- Confirm the underlying diff can still be opened from a review card.
+- Confirm switching **Show logic in place of code** off restores the native diff tables.
+- Confirm GitHub's native file chevrons still expand and collapse each file.
 - Avoid claiming Jev-Reviewer proves correctness; it prioritizes human attention.
