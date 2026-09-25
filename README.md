@@ -15,7 +15,7 @@ This is an early, open-source demo for reviewing **your own coding agent's PRs o
 
 ![Jev-Reviewer on the real GitHub demonstration PR](docs/preview.png)
 
-[Watch the short recording](https://github.com/egma-ai/jev-reviewer/blob/main/docs/demo.mp4) · [Open the demonstration PR](https://github.com/egma-ai/jev-reviewer/pull/1)
+[Watch the short recording](https://github.com/egma-ai/jev-code-reviewer/blob/main/docs/demo.mp4) · [Open the demonstration PR](https://github.com/egma-ai/jev-code-reviewer/pull/1)
 
 The recording uses real Jev classifications and clearly labeled prepared explanation copy. Live OpenAI explanations are implemented but verification is pending funded API access; see [demo provenance](demo/README.md).
 
@@ -24,20 +24,20 @@ The recording uses real Jev classifications and clearly labeled prepared explana
 Requirements: Node.js 22 or newer.
 
 ```sh
-git clone https://github.com/egma-ai/jev-reviewer.git
-cd jev-reviewer
+git clone https://github.com/egma-ai/jev-code-reviewer.git
+cd jev-code-reviewer
 npm install
 npm run demo
 ```
 
-Open **http://127.0.0.1:4731/demo** for the standalone replay, or load the extension and open [the demonstration PR's Files changed page](https://github.com/egma-ai/jev-reviewer/pull/1/files) to see the native GitHub integration. The bundled replay is explicitly labeled and makes no provider calls. Its provenance is included in `demo/README.md`.
+Open **http://127.0.0.1:4731/demo** for the standalone replay, or load the extension and open [the demonstration PR's Files changed page](https://github.com/egma-ai/jev-code-reviewer/pull/1/files) to see the native GitHub integration. The bundled replay is explicitly labeled and makes no provider calls. Its provenance is included in `demo/README.md`.
 
 ## Use on a real PR
 
 Install [GitHub CLI](https://cli.github.com/) and sign in with `gh auth login`. Keep a local clone of the PR's base repository, with `origin` pointing to that GitHub repository. Historical PRs work too; the CLI fetches missing commits without checking out another branch.
 
 ```sh
-# Optional command alias; otherwise use node /path/to/jev-reviewer/bin/jev-reviewer.mjs
+# Optional command alias; otherwise use node /path/to/jev-code-reviewer/bin/jev-reviewer.mjs
 npm link
 
 # Enter keys in your own terminal, never in an agent chat.

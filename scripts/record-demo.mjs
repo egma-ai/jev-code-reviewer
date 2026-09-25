@@ -9,8 +9,8 @@ import { ROOT, readJson, writeJson, loadPolicy, applyPolicy, digest, reportPath 
 
 async function main() {
   const {values}=parseArgs({options:{repo:{type:'string'},pr:{type:'string'},prepared:{type:'boolean'}}});
-  const metadata=await resolvePr(resolve(values.repo || ROOT),values.pr || 'https://github.com/egma-ai/jev-reviewer/pull/1');
-  if(metadata.repository.toLowerCase()!=='egma-ai/jev-reviewer') throw new Error('Only the public Jev-Reviewer demonstration repository can be bundled.');
+  const metadata=await resolvePr(resolve(values.repo || ROOT),values.pr || 'https://github.com/egma-ai/jev-code-reviewer/pull/1');
+  if(metadata.repository.toLowerCase()!=='egma-ai/jev-code-reviewer') throw new Error('Only the public Jev-Reviewer demonstration repository can be bundled.');
   const units=await buildUnits(metadata.repo,metadata.baseSha,metadata.headSha);
   if(units.some(unit=>!unit.path.startsWith('examples/demo-app/'))) throw new Error('Demo PR must modify only examples/demo-app/.');
   const policy=await loadPolicy(metadata.repo);

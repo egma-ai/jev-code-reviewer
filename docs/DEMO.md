@@ -35,7 +35,7 @@ For the GitHub-overlay version of the replay, print the local pairing token in a
 jev-reviewer token
 ```
 
-Click the Jev-Reviewer extension icon, then follow **Connection** → **Local pairing token** → **Save**. Open [the demonstration PR's Files changed page](https://github.com/egma-ai/jev-reviewer/pull/1/files), then enable **Show logic in place of code** in the popup. The token is not printed by `jev-reviewer demo`.
+Click the Jev-Reviewer extension icon, then follow **Connection** → **Local pairing token** → **Save**. Open [the demonstration PR's Files changed page](https://github.com/egma-ai/jev-code-reviewer/pull/1/files), then enable **Show logic in place of code** in the popup. The token is not printed by `jev-reviewer demo`.
 
 Suggested 35-second capture:
 

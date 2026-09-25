@@ -15,7 +15,7 @@ const ARTIFACTS = join(ROOT, 'artifacts');
 const SCREENSHOT = join(ARTIFACTS, 'real-github-extension.png');
 const VIDEO = join(ARTIFACTS, 'real-github-extension.webm');
 const MP4 = join(ARTIFACTS, 'jev-reviewer-demo.mp4');
-const URL = 'https://github.com/egma-ai/jev-reviewer/pull/1/files';
+const URL = 'https://github.com/egma-ai/jev-code-reviewer/pull/1/files';
 const HOMEBREW_CHROMIUM = '/opt/homebrew/bin/chromium';
 const executablePath = process.env.CHROMIUM_PATH || (existsSync(HOMEBREW_CHROMIUM) ? HOMEBREW_CHROMIUM : chromium.executablePath());
 const args = [`--disable-extensions-except=${EXTENSION}`, `--load-extension=${EXTENSION}`];

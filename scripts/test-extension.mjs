@@ -11,7 +11,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXTENSION = join(ROOT, 'extension');
 const ARTIFACT = join(ROOT, 'artifacts', 'extension-native-e2e.png');
 const TOKEN = 'extension-e2e-pairing-token';
-const REPOSITORY = 'egma-ai/jev-reviewer';
+const REPOSITORY = 'egma-ai/jev-code-reviewer';
 const PULL_REQUEST = 1;
 const HEAD = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const STALE_HEAD = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
@@ -28,7 +28,7 @@ const report = {
   repository: REPOSITORY,
   pullRequest: PULL_REQUEST,
   title: 'Make pull request review human-sized',
-  url: 'https://github.com/egma-ai/jev-reviewer/pull/1',
+  url: 'https://github.com/egma-ai/jev-code-reviewer/pull/1',
   baseSha: 'cccccccccccccccccccccccccccccccccccccccc',
   headSha: HEAD,
   generatedAt: '2026-09-18T12:00:00.000Z',
@@ -92,7 +92,7 @@ function githubFixture() {
   <html data-color-mode="light"><head>
     <meta charset="utf-8">
     <meta name="octolytics-dimension-pull_request_head_sha" content="${HEAD}">
-    <title>Human-sized review · Pull Request #1 · egma-ai/jev-reviewer</title>
+    <title>Human-sized review · Pull Request #1 · egma-ai/jev-code-reviewer</title>
   </head><body>
     <nav id="github-tabs"><a>Code</a><a>Issues</a><a>Pull requests</a></nav>
     <aside id="github-sidebar">Changed files</aside>
@@ -166,7 +166,7 @@ async function assertNativeCodeRestored(page, state) {
 async function main() {
   const temp = await mkdtemp(join(tmpdir(), 'jev-reviewer-extension-'));
   const profile = join(temp, 'chromium-profile');
-  const reportFile = join(temp, 'reviews', 'egma-ai--jev-reviewer--1.json');
+  const reportFile = join(temp, 'reviews', 'egma-ai--jev-code-reviewer--1.json');
   await mkdir(dirname(reportFile), { recursive: true });
   await writeFile(reportFile, `${JSON.stringify(report, null, 2)}\n`);
 
@@ -186,7 +186,7 @@ async function main() {
     }));
 
     const page = await context.newPage();
-    await page.goto('https://github.com/egma-ai/jev-reviewer/pull/1/files');
+    await page.goto('https://github.com/egma-ai/jev-code-reviewer/pull/1/files');
     await assertNativeCodeRestored(page, 'unavailable');
 
     const worker = await extensionWorker(context);

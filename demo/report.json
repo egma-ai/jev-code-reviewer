@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "repository": "egma-ai/jev-reviewer",
+  "repository": "egma-ai/jev-code-reviewer",
   "pullRequest": 1,
-  "url": "https://github.com/egma-ai/jev-reviewer/pull/1",
+  "url": "https://github.com/egma-ai/jev-code-reviewer/pull/1",
   "title": "Demo: workspace-scoped exports and bounded pagination",
   "baseSha": "ae58171f735a9b23d6338908407c7f847c693d9a",
   "baseTipSha": "ae58171f735a9b23d6338908407c7f847c693d9a",
