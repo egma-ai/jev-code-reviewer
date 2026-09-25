@@ -4,7 +4,7 @@ The replay uses the public [demonstration PR #1](https://github.com/egma-ai/jev-
 
 `report.json` records the exact base/head commits, generation time, classifier model, distributions, context limits, and explanation provenance. **Every classification comes from a real TypeSafe Jev API call**, with any application-policy override recorded separately.
 
-The initial recording uses **prepared explanation copy** from `prepared-explanations.json`. These are not OpenAI API outputs: the configured OpenAI project returned `credit_balance_exhausted`. Both the browser demo and report disclose this. The OpenAI integration is implemented and tested with mocked API responses; live OpenAI verification remains pending funded API access.
+The initial recording uses **prepared explanation copy** from `prepared-explanations.json`. These are not OpenAI API outputs: the configured OpenAI project returned `credit_balance_exhausted`. Both the browser demo and report disclose this. Live OpenAI explanations have since run on real PRs with a funded key; this bundled recording still uses the prepared copy.
 
 To regenerate with both live providers, configure funded keys and run:
 
