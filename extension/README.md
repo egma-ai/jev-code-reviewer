@@ -9,11 +9,11 @@ This Manifest V3 extension shows a local Jev-Reviewer report inside GitHub pull-
 3. Enable **Developer mode**.
 4. Click **Load unpacked**.
 5. Select this `extension` directory.
-6. Run `jev-reviewer token` in a human-controlled terminal and copy the local pairing token.
-7. Click the Jev-Reviewer extension icon, then follow **Connection** → **Local pairing token** → **Save**.
-8. Open a URL shaped like `https://github.com/OWNER/REPO/pull/123/files` and enable **Show logic in place of code** in the popup.
+6. Run `jev-reviewer token | pbcopy` in a human-controlled terminal to copy the local pairing token.
+7. Click the Jev-Reviewer extension icon, then follow **Connection** → **Local pairing token** → **Save**. Save checks the token with the local service (`GET /api/pairing`) and reports **Paired**, **Token rejected** (not stored), or that the service is not running.
+8. Open a URL shaped like `https://github.com/OWNER/REPO/pull/123/files` (GitHub's classic Files changed page) and enable **Show logic in place of code** in the popup.
 
-The token is kept in Chrome extension local storage and is sent only to `http://127.0.0.1:4731` as a bearer token. It is separate from both model-provider keys. Do not ask a coding agent to print this token into its transcript.
+An unpaired extension opens **Connection** automatically. The token is kept in Chrome extension local storage and is sent only to `http://127.0.0.1:4731` as a bearer token. It is separate from both model-provider keys. Do not ask a coding agent to print this token into its transcript.
 
 ## Behavior
 
@@ -22,7 +22,9 @@ The token is kept in Chrome extension local storage and is sent only to `http://
 - **Show logic in place of code** switches between the behavioral comparison and GitHub's untouched diff tables.
 - **Refresh report** reloads an existing local report. It does not analyze the PR; the CLI or coding-agent skill does that.
 - Connection and expand-by-default preferences live in the extension popup and persist locally. There is no on-page dashboard, toolbar, settings panel, or Analyze button.
-- If logic view is off, the service is unavailable, or report freshness is stale or unverified, the native GitHub code stays visible. Unavailable or unverifiable reports add a warning badge to the extension icon, with details in its popup; there is no on-page warning banner.
+- If logic view is off, the service is unavailable, or report freshness is stale or unverified, the native GitHub code stays visible. Problem states add a warning badge to the extension icon, with details in its popup.
+- When the user must act, a small dismissible notice appears at the bottom right of the PR page: the extension is not paired (HTTP 401), the report is for an older commit, the head commit cannot be verified, or a report is ready but the page is GitHub's new Files changed page (`/pull/<n>/changes`), which is not supported yet. A stopped service or a PR without a report stays quiet, since the extension runs on every pull request page.
+- The popup's status includes coverage: how many files show logic and how many changes were not analyzed.
 - The popup reports provider provenance. Recorded Jev decisions with prepared demo copy are explicitly labeled and never presented as live OpenAI output.
 - Model output is inserted with DOM `textContent`; the extension never injects report HTML.
 

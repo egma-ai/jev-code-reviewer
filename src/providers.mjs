@@ -31,15 +31,7 @@ export async function analyzeWithProviders(units, options = {}) {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   if (typeof fetchImpl !== 'function') throw new Error('No fetch implementation is available.');
 
-  const stored = await loadMissingCredentials(options, ['TYPESAFE_API_KEY', 'OPENAI_API_KEY']);
-  const credentials = {
-    TYPESAFE_API_KEY:
-      options.credentials?.TYPESAFE_API_KEY ?? stored.TYPESAFE_API_KEY ?? process.env.TYPESAFE_API_KEY,
-    OPENAI_API_KEY:
-      options.credentials?.OPENAI_API_KEY ?? stored.OPENAI_API_KEY ?? process.env.OPENAI_API_KEY,
-  };
-  requireSecret(credentials.TYPESAFE_API_KEY, 'TYPESAFE_API_KEY');
-  requireSecret(credentials.OPENAI_API_KEY, 'OPENAI_API_KEY');
+  const { values: credentials, sources } = await resolveCredentials(options, ['TYPESAFE_API_KEY', 'OPENAI_API_KEY']);
 
   const model = options.model ?? process.env.OPENAI_MODEL ?? DEFAULT_OPENAI_MODEL;
   const jevModel = options.jevModel ?? process.env.JEV_MODEL ?? DEFAULT_JEV_MODEL;
@@ -48,12 +40,13 @@ export async function analyzeWithProviders(units, options = {}) {
 
   // Deliberately serial across units. The caller controls cost by choosing units,
   // while each unit's two independent provider requests run concurrently.
-  for (const unit of units) {
+  for (const [index, unit] of units.entries()) {
+    const started = Date.now();
     const packet = buildContextPacket(unit, policy);
     const [explanation, classification] = await Promise.all([
       requestOpenAI({ fetchImpl, apiKey: credentials.OPENAI_API_KEY, model, packet: packet.serialized }),
       requestJev({ fetchImpl, apiKey: credentials.TYPESAFE_API_KEY, model: jevModel, packet: packet.state, policy }),
-    ]);
+    ]).catch((error) => { throw annotateKeySource(error, sources); });
 
     const priority = applyUncertaintyPolicy(classification, policy);
 
@@ -84,9 +77,35 @@ export async function analyzeWithProviders(units, options = {}) {
         },
       },
     });
+    options.onProgress?.({ index: index + 1, total: units.length, path: unit.path, priority, elapsedMs: Date.now() - started });
   }
 
   return results;
+}
+
+// A tiny, synthetic change: one real request to each provider proves the key, quota,
+// and model access before the caller spends minutes on context building.
+const PROBE_UNIT = Object.freeze({
+  id: 'jev-reviewer-provider-check',
+  path: 'provider-check.js',
+  status: 'modified',
+  diff: '-const retries = 2;\n+const retries = 3;',
+  oldCode: 'const retries = 2;',
+  newCode: 'const retries = 3;',
+  context: Object.freeze({ related: [], graph: null, warnings: [], truncated: false }),
+});
+
+export async function checkProviders(options = {}) {
+  const { values, sources } = await resolveCredentials(options, ['TYPESAFE_API_KEY', 'OPENAI_API_KEY']);
+  const shared = { ...options, credentials: values };
+  const [openai, jev] = await Promise.allSettled([
+    explainWithOpenAI(PROBE_UNIT, shared),
+    classifyWithJev(PROBE_UNIT, shared),
+  ]);
+  const outcome = (settled) => settled.status === 'fulfilled'
+    ? { ok: true }
+    : { ok: false, error: annotateKeySource(settled.reason, sources).message };
+  return { sources, openai: outcome(openai), jev: outcome(jev) };
 }
 
 export async function classifyWithJev(unit, options = {}) {
@@ -319,6 +338,35 @@ async function loadMissingCredentials(options, names) {
   return await loader();
 }
 
+const KEY_SOURCE_TEXT = Object.freeze({
+  stored: 'the credentials file (~/.config/jev-reviewer/credentials.json)',
+  environment: "this shell's environment",
+});
+
+// Precedence: caller-supplied, then the stored credentials file, then the environment.
+async function resolveCredentials(options, names) {
+  const stored = await loadMissingCredentials(options, names);
+  const values = {};
+  const sources = {};
+  for (const name of names) {
+    for (const [source, value] of [['option', options.credentials?.[name]], ['stored', stored[name]], ['environment', process.env[name]]]) {
+      if (typeof value === 'string' && value.trim()) { values[name] = value; sources[name] = source; break; }
+    }
+    requireSecret(values[name], name);
+  }
+  return { values, sources };
+}
+
+// Auth and quota failures name the key's source (never its value), so a stale
+// exported key is distinguishable from a stored one.
+function annotateKeySource(error, sources) {
+  const match = /^(OpenAI|Jev) request failed \(HTTP (?:401|403|429)\)/.exec(error?.message || '');
+  if (!match) return error;
+  const name = match[1] === 'OpenAI' ? 'OPENAI_API_KEY' : 'TYPESAFE_API_KEY';
+  const where = KEY_SOURCE_TEXT[sources?.[name]];
+  return where ? new Error(`${error.message} Key used: ${name} from ${where}.`) : error;
+}
+
 async function safeJson(response, provider) {
   try {
     return await response.json();
@@ -409,7 +457,7 @@ function validateUnits(units) {
 
 function requireSecret(value, name) {
   if (typeof value !== 'string' || !value.trim()) {
-    throw new Error(`${name} is not configured. Run npm run setup in your own terminal.`);
+    throw new Error(`${name} is not configured: it is not in ~/.config/jev-reviewer/credentials.json or in this shell's environment. Run jev-reviewer setup in your own terminal.`);
   }
 }
 

@@ -68,3 +68,16 @@ test("retains explicit provider provenance, coverage, and review notes", () => {
   assert.deepEqual(report.changes[0].contextWarnings, ["Graph unavailable."]);
   assert.equal(ui.provenanceText(report), "Recorded Jev decisions · prepared demo explanations");
 });
+
+test("recognizes the classic and new Files changed pages", () => {
+  const classic = { owner: "egma-ai", repo: "egma", pullRequest: 376, view: "files" };
+  const reactPage = { ...classic, view: "changes" };
+  assert.deepEqual(ui.pageIdentity("/egma-ai/egma/pull/376/files"), classic);
+  assert.deepEqual(ui.pageIdentity("/egma-ai/egma/pull/376/files/"), classic);
+  assert.deepEqual(ui.pageIdentity("/egma-ai/egma/pull/376/changes"), reactPage);
+  assert.deepEqual(ui.pageIdentity(new URL("https://github.com/egma-ai/egma/pull/376/changes#diff-abc").pathname), reactPage);
+  assert.equal(ui.pageIdentity("/egma-ai/egma/pull/376/files/aaaa..bbbb"), null, "commit-range views show a partial diff");
+  assert.equal(ui.pageIdentity("/egma-ai/egma/pull/376"), null);
+  assert.equal(ui.pageIdentity("/egma-ai/egma/pull/0/files"), null);
+  assert.equal(ui.pageIdentity("/egma-ai/egma/pull/376/filesx"), null);
+});

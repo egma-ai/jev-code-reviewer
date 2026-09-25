@@ -116,6 +116,14 @@
     };
   }
 
+  // Classic "Files changed" is /files; GitHub's new React page is /changes. Commit-range
+  // views (/files/<range>) show a partial diff, so they are deliberately not matched.
+  function pageIdentity(pathname) {
+    const match = /^\/([^/]+)\/([^/]+)\/pull\/([1-9][0-9]*)\/(?:(files)\/?|(changes)(?:\/.*)?)$/.exec(String(pathname || ""));
+    if (!match) return null;
+    return { owner: match[1], repo: match[2], pullRequest: Number(match[3]), view: match[4] ? "files" : "changes" };
+  }
+
   function makeFreshness(report, currentHeadSha) {
     if (!currentHeadSha || !report.headSha) {
       return { state: "unverified", label: `Head ${report.headSha ? report.headSha.slice(0, 8) : "unknown"} · freshness unverified` };
@@ -267,6 +275,7 @@
     mergeDisplay,
     normalizeChange,
     normalizeReport,
+    pageIdentity,
     provenanceText,
     renderLogicTable,
     renderReview

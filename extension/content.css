@@ -1,3 +1,7 @@
 table[data-jev-code-hidden="true"] { display: none !important; }
 .jrv-native-replacement { width: 100%; }
 .js-file-header .jrv-native-priority { margin-left: 8px; vertical-align: middle; }
+.jrv-page-notice { position: fixed; right: 16px; bottom: 16px; z-index: 100; display: flex; gap: 8px; align-items: flex-start; max-width: 420px; padding: 12px 12px 12px 14px; border: 1px solid var(--borderColor-attention-emphasis, #9a6700); border-radius: 6px; background: linear-gradient(var(--bgColor-attention-muted, #fff8c5), var(--bgColor-attention-muted, #fff8c5)), var(--bgColor-default, #fff); color: var(--fgColor-default, #1f2328); box-shadow: var(--shadow-floating-small, 0 8px 24px rgba(140, 149, 159, 0.2)); font-size: 13px; line-height: 1.45; }
+.jrv-page-notice strong { flex: none; font-weight: 600; }
+.jrv-page-notice-text { flex: 1; }
+.jrv-page-notice-close { flex: none; border: 0; background: none; color: inherit; font-size: 18px; line-height: 1; padding: 0 2px; cursor: pointer; }

@@ -62,7 +62,7 @@ Policy is local operator configuration read from the working directory, separate
 
 ### Cache and browser bridge
 
-Completed reports live below `~/.cache/jev-reviewer/reviews`. The local server reads that cache and binds to loopback, so it is reachable only from the same computer under normal configuration. For a GitHub PR, the extension requests `GET http://127.0.0.1:4731/api/reviews/{owner}/{repo}/{pullRequest}` with the pairing token as a bearer token. It matches the response to the current PR. It does not read arbitrary local files.
+Completed reports live below `~/.cache/jev-reviewer/reviews`. The local server reads that cache and binds to loopback, so it is reachable only from the same computer under normal configuration. For a GitHub PR, the extension requests `GET http://127.0.0.1:4731/api/reviews/{owner}/{repo}/{pullRequest}` with the pairing token as a bearer token. It matches the response to the current PR. It does not read arbitrary local files. The popup's **Save** button calls `GET /api/pairing` with the candidate token; the server answers 200 only when the token matches, so a mistyped token is rejected before it is stored.
 
 The pairing token is not a model-provider key, but it should still be treated as local access material. A coding agent should never run `jev-reviewer token` into its transcript; the human follows **Connection** → **Local pairing token** → **Save** in the extension action popup. Chrome stores it locally for subsequent requests.
 

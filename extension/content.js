@@ -11,10 +11,57 @@
   let scheduled = false;
   let lastUrl = location.href;
   let status = { state: "loading", message: "Loading the local report…", provenance: "" };
+  let notice = null;
+  const dismissed = new Set();
+
+  const COPY = {
+    idle: "Open a pull request’s Files changed tab to use Jev-Reviewer.",
+    unpaired: "Not paired with your local reviewer, so GitHub’s code is unchanged. Click the Jev-Reviewer toolbar button → Connection, paste the output of jev-reviewer token, and Save.",
+    stale: "This report is for an older commit, so GitHub’s code is shown. Rerun jev-reviewer analyze, then click Refresh report in the toolbar popup.",
+    unverified: "Can’t confirm which commit this page shows, so GitHub’s code is shown. Reload the page; if this continues, rerun jev-reviewer analyze.",
+    unsupported: "Your report is ready, but GitHub’s new Files changed page isn’t supported yet. Switch to the classic page (profile picture → Feature preview → turn off the new Files changed experience), then reload.",
+    changesQuiet: "GitHub’s new Files changed page isn’t supported yet. Jev-Reviewer works on the classic page."
+  };
+  // Only states the user must act on get an on-page notice. A stopped server or a PR
+  // without a report stays quiet: this script runs on every pull request page.
+  const NOTICE_STATES = new Set(["unpaired", "unsupported", "stale", "unverified"]);
 
   function identity() {
-    const match = location.pathname.match(/^\/([^/]+)\/([^/]+)\/pull\/([1-9][0-9]*)\/files\/?$/);
-    return match ? { owner: match[1], repo: match[2], pullRequest: Number(match[3]) } : null;
+    return JevReviewerUI.pageIdentity(location.pathname);
+  }
+
+  function renderNotice(state, copy) {
+    const key = `${activeKey}|${state}`;
+    if (!NOTICE_STATES.has(state) || dismissed.has(key)) { notice?.remove(); return; }
+    if (!notice) {
+      notice = document.createElement("div");
+      notice.className = "jrv-page-notice";
+      notice.setAttribute("role", "status");
+      const title = document.createElement("strong");
+      title.textContent = "Jev-Reviewer";
+      const text = document.createElement("span");
+      text.className = "jrv-page-notice-text";
+      const close = document.createElement("button");
+      close.type = "button";
+      close.className = "jrv-page-notice-close";
+      close.setAttribute("aria-label", "Dismiss");
+      close.textContent = "×";
+      close.addEventListener("click", () => { dismissed.add(notice.dataset.key); notice.remove(); });
+      notice.append(title, text, close);
+    }
+    notice.dataset.key = key;
+    notice.dataset.state = state;
+    notice.querySelector(".jrv-page-notice-text").textContent = copy;
+    if (!notice.isConnected) document.body.append(notice);
+  }
+
+  function readyCopy() {
+    const coverage = report.coverage || {};
+    const skipped = coverage.unanalysed
+      ? ` ${coverage.unanalysed} of ${coverage.total} changes weren’t analyzed (--max-units), so their files keep GitHub’s code.`
+      : " Other files keep their original diff.";
+    if (!managed.size) return `Report loaded. Waiting for GitHub’s diff tables.${coverage.unanalysed ? skipped : ""}`;
+    return `Showing logic for ${managed.size} ${managed.size === 1 ? "file" : "files"}.${skipped}`;
   }
 
   function currentHeadSha() {
@@ -40,6 +87,7 @@
   function updateStatus(state, copy) {
     status = { state, message: copy, provenance: report ? JevReviewerUI.provenanceText(report) : "" };
     document.documentElement.dataset.jevReviewerState = state;
+    renderNotice(state, copy);
     message({ type: "JEV_REVIEWER_STATUS_UPDATE", state, message: copy });
   }
 
@@ -76,8 +124,7 @@
     const freshness = JevReviewerUI.makeFreshness(report, currentHeadSha());
     if (freshness.state !== "fresh" || !/^[a-f0-9]{40}$/i.test(report.headSha)) {
       restore();
-      updateStatus(freshness.state === "stale" ? "stale" : "unverified",
-        freshness.state === "stale" ? "This report is for an older commit. Showing GitHub’s code." : "Cannot verify the report’s commit. Showing GitHub’s code.");
+      updateStatus(freshness.state === "stale" ? "stale" : "unverified", freshness.state === "stale" ? COPY.stale : COPY.unverified);
       return;
     }
     const display = JevReviewerUI.mergeDisplay(settings.displaySettings, report.display);
@@ -112,7 +159,7 @@
       file.dataset.jevFile = priority;
       setExpanded(file, display.expanded[priority]);
     }
-    updateStatus("ready", managed.size ? `Showing logic for ${managed.size} files. Other files keep their original diff.` : "Report loaded. Waiting for GitHub’s diff tables.");
+    updateStatus("ready", readyCopy());
   }
 
   function scheduleApply() {
@@ -123,26 +170,30 @@
 
   async function load(force = false) {
     const request = identity();
-    const key = request ? `${request.owner}/${request.repo}#${request.pullRequest}` : "";
+    const key = request ? `${request.owner}/${request.repo}#${request.pullRequest}:${request.view}` : "";
     // A changed page head invalidates visible prose before any asynchronous request.
     if (key === activeKey && report) applyToFiles();
     if (!force && pending && key === activeKey) return;
     const ticket = ++generation;
     pending = false;
     if (key !== activeKey) { restore(); report = null; signature = ""; activeKey = key; }
-    if (!request) { updateStatus("idle", "Open a GitHub pull request’s Files changed tab."); return; }
+    if (!request) { updateStatus("idle", COPY.idle); return; }
     settings = await chrome.storage.local.get(["pairingToken", "logicView", "displaySettings"]);
     if (ticket !== generation) return;
     if (settings.logicView === false) { restore(); report = null; updateStatus("disabled", "Showing GitHub’s original code."); return; }
     pending = true;
-    const result = await message({ type: "JEV_REVIEWER_FETCH", ...request });
+    const result = await message({ type: "JEV_REVIEWER_FETCH", owner: request.owner, repo: request.repo, pullRequest: request.pullRequest });
     if (ticket !== generation) return;
     pending = false;
     if (!result?.ok) {
       restore(); report = null;
-      updateStatus("unavailable", result?.error || "Local reviewer unavailable. Showing GitHub’s code.");
+      if (result?.status === 401) updateStatus("unpaired", COPY.unpaired);
+      else if (request.view === "changes") updateStatus("idle", COPY.changesQuiet);
+      else updateStatus("unavailable", result?.error || "Local reviewer unavailable. Showing GitHub’s code.");
       return;
     }
+    // The report exists, but the new React page has none of the classic diff markup.
+    if (request.view === "changes") { restore(); report = null; updateStatus("unsupported", COPY.unsupported); return; }
     const nextSignature = JSON.stringify(result.report);
     if (force || !report || signature !== nextSignature) {
       restore();
@@ -177,6 +228,6 @@
   setInterval(() => {
     if (location.href !== lastUrl) { lastUrl = location.href; load(true); }
   }, 750);
-  setInterval(() => { if (!document.hidden && identity()) load(); }, 20000);
+  setInterval(() => { if (!document.hidden && identity()?.view === "files") load(); }, 20000);
   load();
 })();

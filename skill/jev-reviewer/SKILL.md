@@ -23,13 +23,21 @@ Do not create, push, or modify a PR solely to make analysis possible unless the 
 
 ## Live analysis
 
-Live analysis requires locally configured `TYPESAFE_API_KEY` for Jev classification and `OPENAI_API_KEY` for natural-language explanations. If setup is incomplete, ask the user to run this directly in their terminal:
+Live analysis requires locally configured `TYPESAFE_API_KEY` for Jev classification and `OPENAI_API_KEY` for natural-language explanations. Before analyzing, run this check. It prints where each key comes from and whether each provider accepts it, never a key value, so it is safe in an agent transcript:
+
+```bash
+jev-reviewer doctor
+```
+
+Your shell may not load variables the user's login shell exports, so a key that is only in the user's environment can be invisible to you. If `doctor` reports a missing or environment-only key, ask the user to run this directly in their terminal; it stores keys it finds only in the environment:
 
 ```bash
 jev-reviewer setup
 ```
 
 Never ask the user to paste a key into chat, add it to this skill, commit it, print it, or inspect its value. Skill installation and credential setup are separate.
+
+`analyze` prints how many change units it will send to the providers (default 12, in path order, `--max-units` up to 100). Tell the user when a PR has more units than were analyzed: files with an unanalyzed change keep GitHub's code in the extension. Do not raise `--max-units` without the user's agreement, because it increases provider cost and time.
 
 The CLI attempts local Graphify enrichment by default and falls back to source-only context when Graphify is unavailable. `--no-graphify` disables that attempt; `--graphify` is an optional explicit enable. Do not present Graphify installation as required.
 
@@ -51,7 +59,7 @@ For a previously analyzed PR, start or confirm the local bridge:
 jev-reviewer serve --port 4731
 ```
 
-The human can run `jev-reviewer token` to obtain the local browser-extension pairing token. Never run that command in an agent transcript: the token is for the human to copy into the locally loaded extension.
+The human can run `jev-reviewer token | pbcopy` to copy the local browser-extension pairing token. Never run that command in an agent transcript: the token is for the human to paste into the extension's **Connection** section, whose **Save** button confirms the pairing. The extension works on GitHub's classic Files changed page (`/pull/<n>/files`); on the new `/changes` page it shows a notice instead of the logic view.
 
 ## Results and policy
 

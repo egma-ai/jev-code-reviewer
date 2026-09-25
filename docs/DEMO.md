@@ -60,6 +60,7 @@ Before recording, choose a public PR and check out its repository locally. Confi
 ```bash
 gh auth status
 jev-reviewer setup
+jev-reviewer doctor
 ```
 
 The setup prompt hides input and stores credentials outside the repository. Never paste either key into an agent chat, command argument, GitHub issue, or screen recording.
@@ -80,13 +81,13 @@ After analysis completes, serve the cached report:
 jev-reviewer serve --port 4731
 ```
 
-In a separate human-controlled terminal, print the pairing token. In the extension popup, follow **Connection** → **Local pairing token** → **Save**:
+In a separate human-controlled terminal, copy the pairing token. In the extension popup, follow **Connection** → **Local pairing token** → **Save**, and check that it reports **Paired**:
 
 ```bash
-jev-reviewer token
+jev-reviewer token | pbcopy
 ```
 
-Do not ask a coding agent to print the token. Open the exact PR's **Files changed** page, enable **Show logic in place of code**, and confirm the report corresponds to the analyzed commit before recording. **Refresh report** reloads an existing report; it does not run analysis.
+Do not ask a coding agent to print the token. Open the exact PR's classic **Files changed** page (`/pull/<n>/files`; GitHub's new `/changes` page is not supported yet), enable **Show logic in place of code**, and confirm the report corresponds to the analyzed commit before recording. **Refresh report** reloads an existing report; it does not run analysis.
 
 ## Agent-driven PR flow
 

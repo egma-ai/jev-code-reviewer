@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   analyzeWithProviders,
+  checkProviders,
   classifyWithJev,
   explainWithOpenAI,
   providerDefaults,
@@ -263,4 +264,73 @@ test('validates unit ids before making provider calls', async () => {
     /non-empty string id/,
   );
   assert.equal(called, false);
+});
+
+test('checkProviders sends one small request per provider and names the key source on quota errors', async () => {
+  const mock = providerFetch();
+  const healthy = await checkProviders({ credentials, fetchImpl: mock.fetchImpl });
+  assert.deepEqual(healthy.openai, { ok: true });
+  assert.deepEqual(healthy.jev, { ok: true });
+  assert.equal(mock.calls.length, 2);
+
+  const previous = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = 'env-openai-secret';
+  try {
+    const exhausted = await checkProviders({
+      loadCredentialsImpl: async () => ({ TYPESAFE_API_KEY: 'stored-ts-secret' }),
+      fetchImpl: async (url, init) => url.includes('openai.com')
+        ? response({ error: { type: 'insufficient_quota', code: 'credit_balance_exhausted' } }, { ok: false, status: 429 })
+        : mock.fetchImpl(url, init),
+    });
+    assert.equal(exhausted.jev.ok, true, 'one failing provider does not hide the other result');
+    assert.equal(exhausted.openai.ok, false);
+    assert.equal(exhausted.openai.error, "OpenAI request failed (HTTP 429); insufficient_quota/credit_balance_exhausted. Key used: OPENAI_API_KEY from this shell's environment.");
+    assert.deepEqual(exhausted.sources, { TYPESAFE_API_KEY: 'stored', OPENAI_API_KEY: 'environment' });
+    assert.doesNotMatch(JSON.stringify(exhausted), /secret/);
+  } finally {
+    if (previous === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previous;
+  }
+});
+
+test('auth failures during analysis name the stored key source, never the key', async () => {
+  const mock = providerFetch();
+  await assert.rejects(
+    analyzeWithProviders([UNIT], {
+      loadCredentialsImpl: async () => ({ TYPESAFE_API_KEY: 'stored-ts-secret', OPENAI_API_KEY: 'stored-oa-secret' }),
+      fetchImpl: async (url, init) => url.includes('typesafe.ai') ? response({}, { ok: false, status: 401 }) : mock.fetchImpl(url, init),
+    }),
+    { message: 'Jev request failed (HTTP 401). Key used: TYPESAFE_API_KEY from the credentials file (~/.config/jev-reviewer/credentials.json).' },
+  );
+});
+
+test('a missing key names every place that was checked', async () => {
+  const saved = { OPENAI_API_KEY: process.env.OPENAI_API_KEY, TYPESAFE_API_KEY: process.env.TYPESAFE_API_KEY };
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.TYPESAFE_API_KEY;
+  try {
+    await assert.rejects(
+      analyzeWithProviders([UNIT], { fetchImpl: providerFetch().fetchImpl, loadCredentialsImpl: async () => ({ TYPESAFE_API_KEY: 'stored-ts' }) }),
+      { message: "OPENAI_API_KEY is not configured: it is not in ~/.config/jev-reviewer/credentials.json or in this shell's environment. Run jev-reviewer setup in your own terminal." },
+    );
+  } finally {
+    for (const [name, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+});
+
+test('reports progress after each analyzed unit', async () => {
+  const events = [];
+  await analyzeWithProviders([UNIT, { ...UNIT, id: 'src/auth.mjs:second' }], {
+    credentials,
+    fetchImpl: providerFetch().fetchImpl,
+    onProgress: (event) => events.push(event),
+  });
+  assert.deepEqual(events.map(({ index, total, path, priority }) => ({ index, total, path, priority })), [
+    { index: 1, total: 2, path: 'src/auth.mjs', priority: 'P0' },
+    { index: 2, total: 2, path: 'src/auth.mjs', priority: 'P0' },
+  ]);
+  assert.ok(events.every((event) => Number.isFinite(event.elapsedMs) && event.elapsedMs >= 0));
 });

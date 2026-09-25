@@ -200,6 +200,11 @@ test('local report server enforces token, host, origin, route, method, and cache
 
   assert.equal((await request(server, '/api/reviews/Owner/Repo/7')).status, 401);
   assert.equal((await request(server, '/api/reviews/Owner/Repo/7', { headers: { Authorization: 'Bearer wrong' } })).status, 401);
+  assert.equal((await request(server, '/api/pairing')).status, 401, 'the pairing check requires the token');
+  assert.equal((await request(server, '/api/pairing', { headers: { Authorization: 'Bearer wrong' } })).status, 401);
+  const pairing = await request(server, '/api/pairing', { headers: authorization });
+  assert.equal(pairing.status, 200);
+  assert.deepEqual(pairing.body, { paired: true });
 
   const allowedOrigin = `chrome-extension://${'a'.repeat(32)}`;
   const accepted = await request(server, '/api/reviews/Owner/Repo/7', {

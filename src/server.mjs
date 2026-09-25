@@ -40,6 +40,7 @@ export async function startServer({ port = 4731, token, directory = cacheDir(), 
       }
       if (path.startsWith('/api/')) {
         if (!equalSecret(request.headers.authorization, `Bearer ${token}`)) return reply(401, { error: 'Pair the extension using jev-reviewer token.' });
+        if (path === '/api/pairing') return reply(200, { paired: true });
         const match = /^\/api\/reviews\/([\w.-]+)\/([\w.-]+)\/([1-9]\d*)$/.exec(path);
         if (!match) return reply(404, { error: 'Unknown endpoint.' });
         const expectedRepository = `${match[1]}/${match[2]}`;

@@ -25,7 +25,7 @@ function reportMatchesRequest(report, message) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "JEV_REVIEWER_STATUS_UPDATE") {
     if (sender.tab?.id && /^https:\/\/github\.com\//.test(sender.url || "")) {
-      const warning = ["stale", "unverified", "unavailable"].includes(message.state);
+      const warning = ["stale", "unverified", "unavailable", "unpaired", "unsupported"].includes(message.state);
       chrome.action.setBadgeText({ tabId: sender.tab.id, text: warning ? "!" : "" });
       chrome.action.setBadgeBackgroundColor({ tabId: sender.tab.id, color: "#9a6700" });
       chrome.action.setTitle({ tabId: sender.tab.id, title: `Jev-Reviewer: ${String(message.message || "").slice(0, 180)}` });

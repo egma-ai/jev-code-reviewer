@@ -14,3 +14,5 @@ details { margin-top: 16px; border-top: 1px solid light-dark(#d1d9e0, #3d444d); 
 summary { cursor: pointer; font-weight: 500; }
 code { font-size: 11px; }
 :focus-visible { outline: 2px solid #0969da; outline-offset: 2px; }
+#pairing-result { margin: 8px 0 0; font-size: 12px; }
+#pairing-result:empty { display: none; }

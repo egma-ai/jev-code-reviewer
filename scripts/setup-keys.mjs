@@ -1,12 +1,50 @@
 #!/usr/bin/env node
 // Run this in your own terminal. Key values are never printed or sent to the agent.
 import { mkdir, readFile, writeFile, rename, chmod, lstat } from 'node:fs/promises';
+import { createInterface } from 'node:readline/promises';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 export const credentialsPath = join(homedir(), '.config', 'jev-reviewer', 'credentials.json');
+const KEY_LABELS = Object.freeze({ TYPESAFE_API_KEY: 'Jev / TypeSafe API key', OPENAI_API_KEY: 'OpenAI API key' });
+
+// Where each key is, never what it is. Stored keys win over the environment
+// (see resolveCredentials in src/providers.mjs).
+export function keySources(stored = {}, env = process.env) {
+  return Object.keys(KEY_LABELS).map((name) => {
+    const storedValue = typeof stored?.[name] === 'string' ? stored[name].trim() : '';
+    const envValue = typeof env?.[name] === 'string' ? env[name].trim() : '';
+    return {
+      name,
+      stored: Boolean(storedValue),
+      environment: Boolean(envValue),
+      differ: Boolean(storedValue && envValue && storedValue !== envValue),
+      used: storedValue ? 'stored' : envValue ? 'environment' : null,
+    };
+  });
+}
+
+export function describeKeySource(entry) {
+  if (entry.used === 'stored') {
+    if (entry.differ) return 'stored in the credentials file and used. This shell also exports a different value, which is ignored';
+    return entry.environment ? 'stored in the credentials file (this shell exports the same value)' : 'stored in the credentials file';
+  }
+  if (entry.used === 'environment') return "only in this shell's environment, not stored. Other shells and coding agents will not see it";
+  return "missing: not in the credentials file or this shell's environment";
+}
+
+async function confirm(question) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
+  const prompt = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = (await prompt.question(question)).trim().toLowerCase();
+    return answer === '' || answer === 'y' || answer === 'yes';
+  } finally {
+    prompt.close();
+  }
+}
 
 export async function loadCredentials(path = credentialsPath) {
   try {
@@ -61,27 +99,42 @@ export function readSecret(label) {
   });
 }
 
-export async function setupKeys({ replaceOpenAI = process.argv.includes('--replace-openai') } = {}) {
+export async function setupKeys({ replaceOpenAI = process.argv.includes('--replace-openai'), env = process.env } = {}) {
   const existing = await loadCredentials();
   const updated = { ...existing };
   let changed = false;
   console.log('Jev-Reviewer key setup. Input is hidden. Keys are stored outside the repository.');
-  for (const [name, label] of [
-    ['TYPESAFE_API_KEY', 'Jev / TypeSafe API key'],
-    ['OPENAI_API_KEY', 'OpenAI API key'],
-  ]) {
-    if (!(replaceOpenAI && name === 'OPENAI_API_KEY') && (process.env[name]?.trim() || (typeof existing[name] === 'string' && existing[name].trim()))) {
-      console.log(`${label}: already configured (value hidden).`);
-      continue;
+  for (const entry of keySources(existing, env)) {
+    const label = KEY_LABELS[entry.name];
+    if (!(replaceOpenAI && entry.name === 'OPENAI_API_KEY')) {
+      if (entry.stored) {
+        console.log(`${label}: ${describeKeySource(entry)} (value hidden).`);
+        continue;
+      }
+      if (entry.environment) {
+        // An exported key only works in shells that load it; agent shells often do not.
+        console.log(`${label}: ${describeKeySource(entry)}.`);
+        if (await confirm(`Store this shell's value in ${credentialsPath}? [Y/n] `)) {
+          updated[entry.name] = env[entry.name].trim();
+          changed = true;
+          console.log(`${label}: stored.`);
+        } else {
+          console.log(`${label}: left in the environment only.`);
+        }
+        continue;
+      }
     }
     const value = await readSecret(`${label} (paste, then Enter): `);
     if (!value) throw new Error(`${label} was empty. Run setup again when ready.`);
-    updated[name] = value;
+    updated[entry.name] = value;
     changed = true;
   }
   if (changed) await saveCredentials(updated);
-  console.log('Both keys are configured. API access has not yet been tested.');
   if (changed) console.log(`Saved to ${credentialsPath} (owner-only file permissions; not encrypted).`);
+  const unstored = keySources(updated, env).filter((entry) => !entry.stored).map((entry) => entry.name);
+  if (unstored.length) console.log(`Warning: ${unstored.join(' and ')} ${unstored.length > 1 ? 'are' : 'is'} not stored, so analyze fails in shells without ${unstored.length > 1 ? 'them' : 'it'}.`);
+  else console.log('Both keys are stored.');
+  console.log('API access has not been tested yet. Run jev-reviewer doctor to test it (one small request to each provider).');
   console.log('You can now tell the agent: keys are ready. Do not send the key values.');
 }
 

@@ -131,6 +131,11 @@ async function waitForState(page, state, timeout = 15000) {
   await page.waitForFunction((expected) => document.documentElement.dataset.jevReviewerState === expected, state, { timeout });
 }
 
+async function assertNotice(page, pattern) {
+  await page.waitForSelector('.jrv-page-notice', { timeout: 5000 });
+  assert.match(await page.locator('.jrv-page-notice-text').textContent(), pattern);
+}
+
 async function popupAction(githubPage, popupPage, selector, action = 'click') {
   await githubPage.bringToFront();
   await popupPage.evaluate(({ target, eventType }) => {
@@ -187,17 +192,26 @@ async function main() {
 
     const page = await context.newPage();
     await page.goto('https://github.com/egma-ai/jev-code-reviewer/pull/1/files');
-    await assertNativeCodeRestored(page, 'unavailable');
+    await assertNativeCodeRestored(page, 'unpaired');
+    await assertNotice(page, /Not paired/);
 
     const worker = await extensionWorker(context);
     const extensionId = new URL(worker.url()).host;
     const popup = await context.newPage();
     await popup.goto(`chrome-extension://${extensionId}/popup.html`);
     assert.equal(await popup.locator('#token').getAttribute('type'), 'password', 'pairing token input is masked');
+    assert.equal(await popup.locator('#connection').evaluate((node) => node.open), true, 'an unpaired extension opens Connection');
+    await popup.locator('#token').fill('not-the-pairing-token');
+    await page.bringToFront();
+    await popup.evaluate(() => document.querySelector('#save').click());
+    await popup.waitForFunction(() => /Token rejected/.test(document.querySelector('#pairing-result').textContent));
+    assert.equal(await worker.evaluate(async () => (await chrome.storage.local.get('pairingToken')).pairingToken), undefined, 'a rejected token is not stored');
     await popup.locator('#token').fill(TOKEN);
     await page.bringToFront();
     await popup.evaluate(() => document.querySelector('#save').click());
+    await popup.waitForFunction(() => /Paired/.test(document.querySelector('#pairing-result').textContent));
     await waitForState(page, 'ready');
+    assert.equal(await page.locator('.jrv-page-notice').count(), 0, 'the notice clears once paired');
 
     assert.equal(await page.locator('.jrv-native-replacement').count(), 4, 'all four native files receive semantic replacements');
     assert.equal(await page.locator('table.diff-table[data-jev-code-hidden="true"]').count(), 4, 'only native code tables are hidden');
@@ -227,6 +241,7 @@ async function main() {
     }, STALE_HEAD);
     await waitForState(page, 'stale', 2500);
     assert.equal(await page.locator('.jrv-native-replacement').count(), 0, 'consensus on a different head remains safely stale');
+    await assertNotice(page, /older commit/);
 
     await page.evaluate((head) => {
       document.querySelector('.js-pull-refresh-on-pjax').setAttribute('data-url', `/compare?end_commit_oid=${head}`);
@@ -234,6 +249,7 @@ async function main() {
     }, HEAD);
     await waitForState(page, 'ready', 2500);
     assert.equal(await page.locator('.jrv-native-replacement').count(), 4, 'matching head attributes reapply logic view without refresh');
+    assert.equal(await page.locator('.jrv-page-notice').count(), 0, 'the stale notice clears when the head matches again');
     assert.equal(await page.locator('table.diff-table[data-jev-code-hidden="true"]').count(), 4);
     await assertNativeNodesPreserved(page);
 
@@ -280,11 +296,23 @@ async function main() {
     await mkdir(dirname(ARTIFACT), { recursive: true });
     await page.screenshot({ path: ARTIFACT, fullPage: true });
 
+    // GitHub's new React page: leave it untouched, but say why when a report is ready.
+    await page.goto('https://github.com/egma-ai/jev-code-reviewer/pull/1/changes');
+    await waitForState(page, 'unsupported');
+    await assertNotice(page, /new Files changed page/);
+    assert.equal(await page.locator('.jrv-native-replacement').count(), 0, 'the new page is never modified');
+    await page.locator('.jrv-page-notice-close').click();
+    assert.equal(await page.locator('.jrv-page-notice').count(), 0, 'the notice can be dismissed');
+    await page.goto('https://github.com/egma-ai/jev-code-reviewer/pull/1/files');
+    await waitForState(page, 'ready');
+    assert.equal(await page.locator('.jrv-native-replacement').count(), 4);
+
     await new Promise((resolveClose, rejectClose) => server.close((error) => error ? rejectClose(error) : resolveClose()));
     server = null;
     await popupAction(page, popup, '#refresh');
     await assertNativeCodeRestored(page, 'unavailable');
     assert.match(await popup.locator('#status').textContent(), /unavailable|offline|not reachable/i);
+    assert.equal(await page.locator('.jrv-page-notice').count(), 0, 'a stopped server stays quiet on the page');
 
     console.log(`Native extension end-to-end test passed. Screenshot: ${ARTIFACT}`);
   } finally {
